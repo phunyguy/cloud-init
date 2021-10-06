@@ -268,136 +268,143 @@ def main_init(name, args):
         w_msg = welcome_format("%s-local" % (name))
     init = stages.Init(ds_deps=deps, reporter=args.reporter)
     # Stage 1
-    init.read_cfg(extract_fns(args))
+    with events.ReportEventStack('init-local' + str(args.local), 'stage-1', parent=init.reporter):
+        init.read_cfg(extract_fns(args))
     # Stage 2
-    outfmt = None
-    errfmt = None
-    try:
-        early_logs.append((logging.DEBUG, "Closing stdin."))
-        util.close_stdin()
-        (outfmt, errfmt) = util.fixup_output(init.cfg, name)
-    except Exception:
-        msg = "Failed to setup output redirection!"
-        util.logexc(LOG, msg)
-        print_exc(msg)
-        early_logs.append((logging.WARN, msg))
-    if args.debug:
-        # Reset so that all the debug handlers are closed out
-        LOG.debug(("Logging being reset, this logger may no"
-                   " longer be active shortly"))
-        logging.resetLogging()
-    logging.setupLogging(init.cfg)
-    apply_reporting_cfg(init.cfg)
+    with events.ReportEventStack('init-local' + str(args.local), 'stage-2', parent=init.reporter):
+        outfmt = None
+        errfmt = None
+        try:
+            early_logs.append((logging.DEBUG, "Closing stdin."))
+            util.close_stdin()
+            (outfmt, errfmt) = util.fixup_output(init.cfg, name)
+        except Exception:
+            msg = "Failed to setup output redirection!"
+            util.logexc(LOG, msg)
+            print_exc(msg)
+            early_logs.append((logging.WARN, msg))
+        if args.debug:
+            # Reset so that all the debug handlers are closed out
+            LOG.debug(("Logging being reset, this logger may no"
+                       " longer be active shortly"))
+            logging.resetLogging()
+        logging.setupLogging(init.cfg)
+        apply_reporting_cfg(init.cfg)
 
-    # Any log usage prior to setupLogging above did not have local user log
-    # config applied.  We send the welcome message now, as stderr/out have
-    # been redirected and log now configured.
-    welcome(name, msg=w_msg)
+        # Any log usage prior to setupLogging above did not have local user log
+        # config applied.  We send the welcome message now, as stderr/out have
+        # been redirected and log now configured.
+        welcome(name, msg=w_msg)
 
-    # re-play early log messages before logging was setup
-    for lvl, msg in early_logs:
-        LOG.log(lvl, msg)
+        # re-play early log messages before logging was setup
+        for lvl, msg in early_logs:
+            LOG.log(lvl, msg)
 
     # Stage 3
-    try:
-        init.initialize()
-    except Exception:
-        util.logexc(LOG, "Failed to initialize, likely bad things to come!")
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-3', parent=init.reporter):
+        try:
+            init.initialize()
+        except Exception:
+            util.logexc(LOG, "Failed to initialize, likely bad things to come!")
     # Stage 4
-    path_helper = init.paths
-    purge_cache_on_python_version_change(init)
-    mode = sources.DSMODE_LOCAL if args.local else sources.DSMODE_NETWORK
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-4', parent=init.reporter):
+        path_helper = init.paths
+        purge_cache_on_python_version_change(init)
+        mode = sources.DSMODE_LOCAL if args.local else sources.DSMODE_NETWORK
 
-    if mode == sources.DSMODE_NETWORK:
-        existing = "trust"
-        sys.stderr.write("%s\n" % (netinfo.debug_info()))
-        LOG.debug(("Checking to see if files that we need already"
-                   " exist from a previous run that would allow us"
-                   " to stop early."))
-        # no-net is written by upstart cloud-init-nonet when network failed
-        # to come up
-        stop_files = [
-            os.path.join(path_helper.get_cpath("data"), "no-net"),
-        ]
-        existing_files = []
-        for fn in stop_files:
-            if os.path.isfile(fn):
-                existing_files.append(fn)
-
-        if existing_files:
-            LOG.debug("[%s] Exiting. stop file %s existed",
-                      mode, existing_files)
-            return (None, [])
-        else:
-            LOG.debug("Execution continuing, no previous run detected that"
-                      " would allow us to stop early.")
-    else:
-        existing = "check"
-        mcfg = util.get_cfg_option_bool(init.cfg, 'manual_cache_clean', False)
-        if mcfg:
-            LOG.debug("manual cache clean set from config")
+        if mode == sources.DSMODE_NETWORK:
             existing = "trust"
-        else:
-            mfile = path_helper.get_ipath_cur("manual_clean_marker")
-            if os.path.exists(mfile):
-                LOG.debug("manual cache clean found from marker: %s", mfile)
-                existing = "trust"
+            sys.stderr.write("%s\n" % (netinfo.debug_info()))
+            LOG.debug(("Checking to see if files that we need already"
+                       " exist from a previous run that would allow us"
+                       " to stop early."))
+            # no-net is written by upstart cloud-init-nonet when network failed
+            # to come up
+            stop_files = [
+                os.path.join(path_helper.get_cpath("data"), "no-net"),
+            ]
+            existing_files = []
+            for fn in stop_files:
+                if os.path.isfile(fn):
+                    existing_files.append(fn)
 
-        init.purge_cache()
-        # Delete the no-net file as well
-        util.del_file(os.path.join(path_helper.get_cpath("data"), "no-net"))
-
-    # Stage 5
-    try:
-        init.fetch(existing=existing)
-        # if in network mode, and the datasource is local
-        # then work was done at that stage.
-        if mode == sources.DSMODE_NETWORK and init.datasource.dsmode != mode:
-            LOG.debug("[%s] Exiting. datasource %s in local mode",
-                      mode, init.datasource)
-            return (None, [])
-    except sources.DataSourceNotFoundException:
-        # In the case of 'cloud-init init' without '--local' it is a bit
-        # more likely that the user would consider it failure if nothing was
-        # found. When using upstart it will also mentions job failure
-        # in console log if exit code is != 0.
-        if mode == sources.DSMODE_LOCAL:
-            LOG.debug("No local datasource found")
-        else:
-            util.logexc(LOG, ("No instance datasource found!"
-                              " Likely bad things to come!"))
-        if not args.force:
-            init.apply_network_config(bring_up=not args.local)
-            LOG.debug("[%s] Exiting without datasource", mode)
-            if mode == sources.DSMODE_LOCAL:
+            if existing_files:
+                LOG.debug("[%s] Exiting. stop file %s existed",
+                          mode, existing_files)
                 return (None, [])
             else:
-                return (None, ["No instance datasource found."])
+                LOG.debug("Execution continuing, no previous run detected that"
+                          " would allow us to stop early.")
         else:
-            LOG.debug("[%s] barreling on in force mode without datasource",
-                      mode)
+            existing = "check"
+            mcfg = util.get_cfg_option_bool(init.cfg, 'manual_cache_clean', False)
+            if mcfg:
+                LOG.debug("manual cache clean set from config")
+                existing = "trust"
+            else:
+                mfile = path_helper.get_ipath_cur("manual_clean_marker")
+                if os.path.exists(mfile):
+                    LOG.debug("manual cache clean found from marker: %s", mfile)
+                    existing = "trust"
 
-    _maybe_persist_instance_data(init)
+            init.purge_cache()
+            # Delete the no-net file as well
+            util.del_file(os.path.join(path_helper.get_cpath("data"), "no-net"))
+
+    # Stage 5
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-5', parent=init.reporter):
+        try:
+            init.fetch(existing=existing)
+            # if in network mode, and the datasource is local
+            # then work was done at that stage.
+            if mode == sources.DSMODE_NETWORK and init.datasource.dsmode != mode:
+                LOG.debug("[%s] Exiting. datasource %s in local mode",
+                          mode, init.datasource)
+                return (None, [])
+        except sources.DataSourceNotFoundException:
+            # In the case of 'cloud-init init' without '--local' it is a bit
+            # more likely that the user would consider it failure if nothing was
+            # found. When using upstart it will also mentions job failure
+            # in console log if exit code is != 0.
+            if mode == sources.DSMODE_LOCAL:
+                LOG.debug("No local datasource found")
+            else:
+                util.logexc(LOG, ("No instance datasource found!"
+                                  " Likely bad things to come!"))
+            if not args.force:
+                init.apply_network_config(bring_up=not args.local)
+                LOG.debug("[%s] Exiting without datasource", mode)
+                if mode == sources.DSMODE_LOCAL:
+                    return (None, [])
+                else:
+                    return (None, ["No instance datasource found."])
+            else:
+                LOG.debug("[%s] barreling on in force mode without datasource",
+                          mode)
+
+        _maybe_persist_instance_data(init)
+
     # Stage 6
-    iid = init.instancify()
-    LOG.debug("[%s] %s will now be targeting instance id: %s. new=%s",
-              mode, name, iid, init.is_new_instance())
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-6', parent=init.reporter):
+        iid = init.instancify()
+        LOG.debug("[%s] %s will now be targeting instance id: %s. new=%s",
+                  mode, name, iid, init.is_new_instance())
 
-    if mode == sources.DSMODE_LOCAL:
-        # Before network comes up, set any configured hostname to allow
-        # dhcp clients to advertize this hostname to any DDNS services
-        # LP: #1746455.
-        _maybe_set_hostname(init, stage='local', retry_stage='network')
-    init.apply_network_config(bring_up=bool(mode != sources.DSMODE_LOCAL))
+        if mode == sources.DSMODE_LOCAL:
+            # Before network comes up, set any configured hostname to allow
+            # dhcp clients to advertize this hostname to any DDNS services
+            # LP: #1746455.
+            _maybe_set_hostname(init, stage='local', retry_stage='network')
+        init.apply_network_config(bring_up=bool(mode != sources.DSMODE_LOCAL))
 
-    if mode == sources.DSMODE_LOCAL:
-        if init.datasource.dsmode != mode:
-            LOG.debug("[%s] Exiting. datasource %s not in local mode.",
-                      mode, init.datasource)
-            return (init.datasource, [])
-        else:
-            LOG.debug("[%s] %s is in local mode, will apply init modules now.",
-                      mode, init.datasource)
+        if mode == sources.DSMODE_LOCAL:
+            if init.datasource.dsmode != mode:
+                LOG.debug("[%s] Exiting. datasource %s not in local mode.",
+                          mode, init.datasource)
+                return (init.datasource, [])
+            else:
+                LOG.debug("[%s] %s is in local mode, will apply init modules now.",
+                          mode, init.datasource)
 
     # Give the datasource a chance to use network resources.
     # This is used on Azure to communicate with the fabric over network.
@@ -406,49 +413,55 @@ def main_init(name, args):
     init.update()
     _maybe_set_hostname(init, stage='init-net', retry_stage='modules:config')
     # Stage 7
-    try:
-        # Attempt to consume the data per instance.
-        # This may run user-data handlers and/or perform
-        # url downloads and such as needed.
-        (ran, _results) = init.cloudify().run('consume_data',
-                                              init.consume_data,
-                                              args=[PER_INSTANCE],
-                                              freq=PER_INSTANCE)
-        if not ran:
-            # Just consume anything that is set to run per-always
-            # if nothing ran in the per-instance code
-            #
-            # See: https://bugs.launchpad.net/bugs/819507 for a little
-            # reason behind this...
-            init.consume_data(PER_ALWAYS)
-    except Exception:
-        util.logexc(LOG, "Consuming user data failed!")
-        return (init.datasource, ["Consuming user data failed!"])
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-7', parent=init.reporter):
+        try:
+            # Attempt to consume the data per instance.
+            # This may run user-data handlers and/or perform
+            # url downloads and such as needed.
+            (ran, _results) = init.cloudify().run('consume_data',
+                                                  init.consume_data,
+                                                  args=[PER_INSTANCE],
+                                                  freq=PER_INSTANCE)
+            if not ran:
+                # Just consume anything that is set to run per-always
+                # if nothing ran in the per-instance code
+                #
+                # See: https://bugs.launchpad.net/bugs/819507 for a little
+                # reason behind this...
+                init.consume_data(PER_ALWAYS)
+        except Exception:
+            util.logexc(LOG, "Consuming user data failed!")
+            return (init.datasource, ["Consuming user data failed!"])
 
-    apply_reporting_cfg(init.cfg)
+        apply_reporting_cfg(init.cfg)
 
     # Stage 8 - re-read and apply relevant cloud-config to include user-data
-    mods = stages.Modules(init, extract_fns(args), reporter=args.reporter)
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-8', parent=init.reporter):
+        mods = stages.Modules(init, extract_fns(args), reporter=args.reporter)
     # Stage 9
-    try:
-        outfmt_orig = outfmt
-        errfmt_orig = errfmt
-        (outfmt, errfmt) = util.get_output_cfg(mods.cfg, name)
-        if outfmt_orig != outfmt or errfmt_orig != errfmt:
-            LOG.warning("Stdout, stderr changing to (%s, %s)",
-                        outfmt, errfmt)
-            (outfmt, errfmt) = util.fixup_output(mods.cfg, name)
-    except Exception:
-        util.logexc(LOG, "Failed to re-adjust output redirection!")
-    logging.setupLogging(mods.cfg)
+    with events.ReportEventStack('init-local'  + str(args.local), 'stage-9', parent=init.reporter):
+        try:
+            outfmt_orig = outfmt
+            errfmt_orig = errfmt
+            (outfmt, errfmt) = util.get_output_cfg(mods.cfg, name)
+            if outfmt_orig != outfmt or errfmt_orig != errfmt:
+                LOG.warning("Stdout, stderr changing to (%s, %s)",
+                            outfmt, errfmt)
+                (outfmt, errfmt) = util.fixup_output(mods.cfg, name)
+        except Exception:
+            util.logexc(LOG, "Failed to re-adjust output redirection!")
+        logging.setupLogging(mods.cfg)
 
-    # give the activated datasource a chance to adjust
-    init.activate_datasource()
+        # give the activated datasource a chance to adjust
+        init.activate_datasource()
 
-    di_report_warn(datasource=init.datasource, cfg=init.cfg)
+        di_report_warn(datasource=init.datasource, cfg=init.cfg)
 
     # Stage 10
-    return (init.datasource, run_module_section(mods, name, name))
+    with events.ReportEventStack('init-local' + str(args.local), 'stage-10', parent=init.reporter):
+        out = (init.datasource, run_module_section(mods, name, name))
+
+    return out
 
 
 def di_report_warn(datasource, cfg):
