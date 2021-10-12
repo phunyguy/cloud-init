@@ -31,14 +31,14 @@ frequency = PER_INSTANCE
 distros = ["ubuntu", "debian"]
 mirror_property = {
     'type': 'array',
-    'item': {
+    'items': {
         'type': 'object',
         'additionalProperties': False,
         'required': ['arches'],
         'properties': {
             'arches': {
                 'type': 'array',
-                'item': {
+                'items': {
                     'type': 'string'
                 },
                 'minItems': 1
@@ -49,7 +49,7 @@ mirror_property = {
             },
             'search': {
                 'type': 'array',
-                'item': {
+                'items': {
                     'type': 'string',
                     'format': 'uri'
                 },
@@ -245,6 +245,7 @@ schema = {
                             - ``key``: a raw PGP key.
                             - ``keyserver``: alternate keyserver to pull \
                                     ``keyid`` key from.
+                            - ``filename``: specify the name of the .list file
 
                         If no mirrors are specified, or all lookups fail,
                         then default mirrors defined in the datasource
@@ -1006,7 +1007,7 @@ def get_arch_mirrorconfig(cfg, mirrortype, arch):
     # select the specification matching the target arch
     default = None
     for mirror_cfg_elem in mirror_cfg_list:
-        arches = mirror_cfg_elem.get("arches")
+        arches = mirror_cfg_elem.get("arches") or []
         if arch in arches:
             return mirror_cfg_elem
         if "default" in arches:
