@@ -4,7 +4,7 @@ from cloudinit import cloud
 from cloudinit.config import cc_growpart
 from cloudinit import subp
 
-from cloudinit.tests.helpers import TestCase
+from tests.unittests.cloudinit.helpers import TestCase
 
 import errno
 import logging

@@ -13,7 +13,7 @@ from cloudinit import util
 
 from cloudinit.sources import DataSourceNoCloud
 
-from cloudinit.tests import helpers as t_help
+from tests.unittests.cloudinit import helpers as t_help
 
 from configobj import ConfigObj
 import logging

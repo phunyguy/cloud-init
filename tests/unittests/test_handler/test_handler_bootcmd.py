@@ -3,7 +3,7 @@
 from cloudinit.config.cc_bootcmd import handle, schema
 from cloudinit.sources import DataSourceNone
 from cloudinit import (distros, helpers, cloud, subp, util)
-from cloudinit.tests.helpers import (
+from tests.unittests.cloudinit.helpers import (
     CiTestCase, mock, SchemaTestCaseMixin, skipUnlessJsonSchema)
 
 import logging

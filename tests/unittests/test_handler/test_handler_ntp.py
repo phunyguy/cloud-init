@@ -4,7 +4,7 @@ from cloudinit.config import cc_ntp
 from cloudinit.sources import DataSourceNone
 from cloudinit import (distros, helpers, cloud, util)
 
-from cloudinit.tests.helpers import (
+from tests.unittests.cloudinit.helpers import (
     CiTestCase, FilesystemMockingTestCase, mock, skipUnlessJsonSchema)
 
 

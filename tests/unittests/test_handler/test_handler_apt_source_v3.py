@@ -24,7 +24,7 @@ from cloudinit import util
 from cloudinit.config import cc_apt_configure
 from cloudinit.sources import DataSourceNone
 
-from cloudinit.tests import helpers as t_help
+from tests.unittests.cloudinit import helpers as t_help
 
 EXPECTEDKEY = """-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1

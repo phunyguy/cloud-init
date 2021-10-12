@@ -2,7 +2,7 @@
 
 from cloudinit import distros
 from cloudinit import util
-from cloudinit.tests.helpers import (FilesystemMockingTestCase, mock)
+from tests.unittests.cloudinit.helpers import (FilesystemMockingTestCase, mock)
 
 
 @mock.patch("cloudinit.distros.debian.subp.subp")

@@ -12,7 +12,7 @@ from cloudinit import helpers
 from cloudinit.sources import DataSourceNone
 from cloudinit import util
 
-from cloudinit.tests.helpers import (
+from tests.unittests.cloudinit.helpers import (
     HttprettyTestCase, FilesystemMockingTestCase, mock, skipIf)
 
 LOG = logging.getLogger(__name__)

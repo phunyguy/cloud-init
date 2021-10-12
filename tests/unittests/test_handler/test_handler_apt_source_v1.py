@@ -17,7 +17,7 @@ from cloudinit import gpg
 from cloudinit import subp
 from cloudinit import util
 
-from cloudinit.tests.helpers import TestCase
+from tests.unittests.cloudinit.helpers import TestCase
 
 EXPECTEDKEY = """-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1

@@ -9,7 +9,7 @@ from unittest import mock
 
 from cloudinit.sources import DataSourceMAAS
 from cloudinit import url_helper
-from cloudinit.tests.helpers import CiTestCase, populate_dir
+from tests.unittests.cloudinit.helpers import CiTestCase, populate_dir
 
 
 class TestMAASDataSource(CiTestCase):

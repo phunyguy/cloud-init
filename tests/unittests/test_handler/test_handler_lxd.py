@@ -3,7 +3,7 @@
 from cloudinit.config import cc_lxd
 from cloudinit.sources import DataSourceNoCloud
 from cloudinit import (distros, helpers, cloud)
-from cloudinit.tests import helpers as t_help
+from tests.unittests.cloudinit import helpers as t_help
 
 from unittest import mock
 

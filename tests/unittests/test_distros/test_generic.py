@@ -3,7 +3,7 @@
 from cloudinit import distros
 from cloudinit import util
 
-from cloudinit.tests import helpers
+from tests.unittests.cloudinit import helpers
 
 import os
 import pytest
