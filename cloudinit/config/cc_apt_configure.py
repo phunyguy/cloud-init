@@ -1006,7 +1006,7 @@ def get_arch_mirrorconfig(cfg, mirrortype, arch):
     # select the specification matching the target arch
     default = None
     for mirror_cfg_elem in mirror_cfg_list:
-        arches = mirror_cfg_elem.get("arches")
+        arches = mirror_cfg_elem.get("arches", [])
         if arch in arches:
             return mirror_cfg_elem
         if "default" in arches:
