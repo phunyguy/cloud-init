@@ -34,6 +34,7 @@ S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
 -----END PGP PUBLIC KEY BLOCK-----"""
 
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
+TARGET=None
 
 
 class FakeDistro(object):
@@ -85,6 +86,23 @@ class TestAptSourceConfig(TestCase):
         get_arch = apatcher.start()
         get_arch.return_value = 'amd64'
         self.addCleanup(apatcher.stop)
+
+    @staticmethod
+    def _add_apt_sources(*args, **kwargs):
+        with mock.patch.object(cc_apt_configure, 'update_packages'):
+            cc_apt_configure.add_apt_sources(*args, **kwargs)
+
+    @staticmethod
+    def _get_default_params():
+        """get_default_params
+        Get the most basic default mrror and release info to be used in tests
+        """
+        params = {}
+        params['RELEASE'] = MOCK_LSB_RELEASE_DATA['release']
+        arch = 'amd64'
+        params['MIRROR'] = cc_apt_configure.\
+            get_default_mirrors(arch)["PRIMARY"]
+        return params
 
     def _get_default_params(self):
         """get_default_params
@@ -279,16 +297,17 @@ class TestAptSourceConfig(TestCase):
         """
         cfg = self.wrapv1conf(cfg)
 
-        with mock.patch.object(subp, 'subp',
-                               return_value=('fakekey 1234', '')) as mockobj:
-            cc_apt_configure.handle("test", cfg, self.fakecloud, None, None)
+        params = self._get_default_params()
 
-        # check if it added the right ammount of keys
+        with mock.patch.object(cc_apt_configure, 'add_apt_key') as mockobj:
+            self._add_apt_sources(cfg, None, template_params=params,
+                                  aa_repo_match=self.matcher)
+
+        # check if it added the right amount of keys
         calls = []
-        for _ in range(keynum):
-            calls.append(call(['apt-key', 'add', '-'],
-                              data=b'fakekey 1234',
-                              target=None))
+        for key in cfg:
+            calls.append(call(cfg[key], None))
+
         mockobj.assert_has_calls(calls, any_order=True)
 
         self.assertTrue(os.path.isfile(filename))
@@ -362,13 +381,20 @@ class TestAptSourceConfig(TestCase):
         """apt_src_key
         Test specification of a source + key
         """
-        cfg = self.wrapv1conf([cfg])
+        cfg = {filename: self.wrapv1conf([cfg])}
 
-        with mock.patch.object(subp, 'subp') as mockobj:
-            cc_apt_configure.handle("test", cfg, self.fakecloud, None, None)
+        params = self._get_default_params()
 
-        mockobj.assert_called_with(['apt-key', 'add', '-'],
-                                   data=b'fakekey 4321', target=None)
+        with mock.patch.object(cc_apt_configure, 'add_apt_key') as mockobj:
+            self._add_apt_sources(cfg, None, template_params=params,
+                                  aa_repo_match=self.matcher)
+
+        # check if it added the right amount of keys
+        calls = []
+        for key in cfg:
+            calls.append(call(cfg[key], None))
+
+        mockobj.assert_has_calls(calls, any_order=True)
 
         self.assertTrue(os.path.isfile(filename))
 
@@ -402,31 +428,37 @@ class TestAptSourceConfig(TestCase):
 
     def test_apt_src_keyonly(self):
         """Test specifying key without source"""
+        params = self._get_default_params()
         cfg = {'key': "fakekey 4242",
                'filename': self.aptlistfile}
-        cfg = self.wrapv1conf([cfg])
+        cfg = {self.aptlistfile: self.wrapv1conf([cfg])}
 
-        with mock.patch.object(subp, 'subp') as mockobj:
-            cc_apt_configure.handle("test", cfg, self.fakecloud, None, None)
+        with mock.patch.object(cc_apt_configure, 'apt_key') as mockobj:
+            self._add_apt_sources(cfg, None, template_params=params,
+                                  aa_repo_match=self.matcher)
 
-        mockobj.assert_called_once_with(['apt-key', 'add', '-'],
-                                        data=b'fakekey 4242', target=None)
+        calls = (call('add', output_file=self.aptlistfile[:-5], data='fakekey 4242'),)
+        mockobj.assert_has_calls(calls, any_order=True)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
 
     def test_apt_src_keyidonly(self):
         """Test specification of a keyid without source"""
+
+        params = self._get_default_params()
         cfg = {'keyid': "03683F77",
                'filename': self.aptlistfile}
-        cfg = self.wrapv1conf([cfg])
-
+        cfg = {self.aptlistfile: self.wrapv1conf([cfg])}
         with mock.patch.object(subp, 'subp',
-                               return_value=('fakekey 1212', '')) as mockobj:
-            cc_apt_configure.handle("test", cfg, self.fakecloud, None, None)
+                               return_value=('fakekey 1212', '')):
+            with mock.patch.object(cc_apt_configure, 'apt_key') as mockobj:
+                self._add_apt_sources(cfg, TARGET, template_params=params,
+                                      aa_repo_match=self.matcher)
 
-        mockobj.assert_called_with(['apt-key', 'add', '-'],
-                                   data=b'fakekey 1212', target=None)
+        calls = (call('add', output_file=self.aptlistfile[:-5], data='fakekey 1212'),)
+        mockobj.assert_has_calls(calls, any_order=True)
+
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
@@ -448,7 +480,7 @@ class TestAptSourceConfig(TestCase):
                                         None, None)
 
         mockgetkey.assert_called_with(key, keyserver)
-        mockkey.assert_called_with(expectedkey, None)
+        mockkey.assert_called_with(expectedkey, self.aptlistfile, None)
 
         # filename should be ignored on key only
         self.assertFalse(os.path.isfile(self.aptlistfile))
