@@ -33,6 +33,8 @@ def dearmor(key):
         note: man gpg(1) makes no mention of an --armour spelling, only --armor
     """
 
+    if not key:
+        raise ValueError("invalid attempt to dearmor key")
     (stdout, _) = subp.subp(["gpg", "--dearmor"], data=key, decode=False,
             capture=True)
     return stdout
