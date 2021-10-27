@@ -111,6 +111,19 @@ def validate_cloudconfig_schema(config, schema, strict=False):
             validators=Draft4Validator.VALIDATORS,
             version="draft4",
             default_types=types)
+
+    mymeta = cloudinitValidator.META_SCHEMA
+
+    # this disables bottom-level keys
+    mymeta['additionalProperties'] = False # prevent bottom level
+
+    # encoding the base level jsonschema definitions
+    # necessary since (since additionalProperties=False)
+    mymeta['properties']['name'] = {'type': 'string'}
+    mymeta['properties']['examples'] = {'type': 'array'}
+    mymeta['properties']['distros'] = {'type': 'array'}
+    mymeta['properties']['frequency'] = {'type': 'string'}
+    cloudinitValidator.check_schema(schema)
     validator = cloudinitValidator(schema, format_checker=FormatChecker())
     errors = ()
     for error in sorted(validator.iter_errors(config), key=lambda e: e.path):

@@ -31,14 +31,14 @@ frequency = PER_INSTANCE
 distros = ["ubuntu", "debian"]
 mirror_property = {
     'type': 'array',
-    'item': {
+    'items': {
         'type': 'object',
         'additionalProperties': False,
         'required': ['arches'],
         'properties': {
             'arches': {
                 'type': 'array',
-                'item': {
+                'items': {
                     'type': 'string'
                 },
                 'minItems': 1
@@ -49,7 +49,7 @@ mirror_property = {
             },
             'search': {
                 'type': 'array',
-                'item': {
+                'items': {
                     'type': 'string',
                     'format': 'uri'
                 },

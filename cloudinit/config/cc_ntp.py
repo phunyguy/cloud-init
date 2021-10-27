@@ -289,12 +289,10 @@ schema = {
                     },
                     # Don't use REQUIRED_NTP_CONFIG_KEYS to allow for override
                     # of builtin client values.
-                    'required': [],
                     'minProperties': 1,  # If we have config, define something
                     'additionalProperties': False
                 },
             },
-            'required': [],
             'additionalProperties': False
         }
     }

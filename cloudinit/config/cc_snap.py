@@ -139,7 +139,6 @@ schema = {
                 }
             },
             'additionalProperties': False,  # Reject keys not in schema
-            'required': [],
             'minProperties': 1
         }
     }
