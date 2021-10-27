@@ -69,7 +69,6 @@ schema = {
             'additionalItems': False,  # Reject items of non-string non-list
             'additionalProperties': False,
             'minItems': 1,
-            'required': [],
         }
     }
 }

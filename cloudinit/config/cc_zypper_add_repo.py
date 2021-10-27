@@ -86,7 +86,6 @@ schema = {
                         /etc/zypp/zypp.conf'""")
                 }
             },
-            'required': [],
             'minProperties': 1,  # Either config or repo must be provided
             'additionalProperties': False,  # only repos and config allowed
         }
