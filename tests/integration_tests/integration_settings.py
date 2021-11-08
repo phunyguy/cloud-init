@@ -22,7 +22,7 @@ RUN_UNSTABLE = False
 #  gce
 #  oci
 #  openstack
-PLATFORM = 'lxd_container'
+PLATFORM = 'lxd_vm'
 
 # The cloud-specific instance type to run. E.g., a1.medium on AWS
 # If the pycloudlib instance provides a default, this can be left None
@@ -66,7 +66,7 @@ EXISTING_INSTANCE_ID = None
 #   Install from a PPA. It MUST start with 'ppa:'
 # <file path>
 #   A path to a valid package to be uploaded and installed
-CLOUD_INIT_SOURCE = 'NONE'
+CLOUD_INIT_SOURCE = 'IN_PLACE'
 
 # Before an instance is torn down, we run `cloud-init collect-logs`
 # and transfer them locally. These settings specify when to collect these
