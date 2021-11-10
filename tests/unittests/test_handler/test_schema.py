@@ -529,7 +529,7 @@ class TestStrictMetaschema:
                 self.validate_cloudconfig_schema(value)
             else:
                 logging.warning(
-                    "module {} has no schema definition".format(name))
+                    "module %s has no schema definition", name)
 
     def get_schemas(self):
         '''Return all module schemas
