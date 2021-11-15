@@ -17,6 +17,7 @@ def import_module(module_name):
 
 
 def find_module(base_name, search_paths, required_attrs=None):
+    '''Finds and imports specified modules'''
     if not required_attrs:
         required_attrs = []
     # NOTE(harlowja): translate the search paths to include the base name.

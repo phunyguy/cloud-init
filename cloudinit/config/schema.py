@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import yaml
+import functools
 
 _YAML_MAP = {True: 'true', False: 'false', None: 'null'}
 SCHEMA_UNDEFINED = b'UNDEFINED'
@@ -373,9 +374,9 @@ def _get_property_doc(schema, prefix='    '):
     return '\n\n'.join(properties)
 
 
-def _get_schema_examples(schema, prefix=''):
-    """Return restructured text describing the schema examples if present."""
-    examples = schema.get('examples')
+def _get_meta_examples(meta):
+    """Return restructured text describing the meta examples if present."""
+    examples = meta.get('examples')
     if not examples:
         return ''
     rst_content = SCHEMA_EXAMPLES_HEADER
@@ -390,43 +391,57 @@ def _get_schema_examples(schema, prefix=''):
     return rst_content
 
 
-def get_schema_doc(schema):
-    """Return reStructured text rendering the provided jsonschema.
+def get_meta_doc(meta):
+    """Return reStructured text rendering the provided metadata.
 
-    @param schema: Dict of jsonschema to render.
-    @raise KeyError: If schema lacks an expected key.
+    @param meta: Dict of metadata to render.
+    @raise KeyError: If metadata lacks an expected key.
     """
-    schema_copy = deepcopy(schema)
-    schema_copy['property_doc'] = _get_property_doc(schema)
-    schema_copy['examples'] = _get_schema_examples(schema)
-    schema_copy['distros'] = ', '.join(schema['distros'])
+
+    # Don't throw exceptions for a falsy meta variable.
+    if not meta:
+        return None
+    meta_copy = deepcopy(meta)
+    meta_copy['property_doc'] = _get_property_doc(meta)
+    meta_copy['examples'] = _get_meta_examples(meta)
+    if 'distros' not in meta_copy:
+        print(meta_copy)
+    meta_copy['distros'] = ', '.join(meta['distros'])
     # Need an underbar of the same length as the name
-    schema_copy['title_underbar'] = re.sub(r'.', '-', schema['name'])
-    return SCHEMA_DOC_TMPL.format(**schema_copy)
+    meta_copy['title_underbar'] = re.sub(r'.', '-', meta['name'])
+    return SCHEMA_DOC_TMPL.format(**meta_copy)
 
 
-FULL_SCHEMA = None
-
-
+@functools.cache
 def get_schema():
     """Return jsonschema coalesced from all cc_* cloud-config module."""
-    global FULL_SCHEMA
-    if FULL_SCHEMA:
-        return FULL_SCHEMA
     full_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'id': 'cloud-config-schema', 'allOf': []}
 
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     potential_handlers = find_modules(configs_dir)
-    for (_fname, mod_name) in potential_handlers.items():
-        mod_locs, _looked_locs = importer.find_module(
+    for (_, mod_name) in potential_handlers.items():
+        (mod_locs, _) = importer.find_module(
             mod_name, ['cloudinit.config'], ['schema'])
         if mod_locs:
             mod = importer.import_module(mod_locs[0])
             full_schema['allOf'].append(mod.schema)
-    FULL_SCHEMA = full_schema
     return full_schema
+
+@functools.cache
+def get_meta():
+    """Return metadata coalesced from all cc_* cloud-config module."""
+    full_meta = dict()
+    configs_dir = os.path.dirname(os.path.abspath(__file__))
+    potential_handlers = find_modules(configs_dir)
+    for (_, mod_name) in potential_handlers.items():
+        mod_locs, _ = importer.find_module(
+            mod_name, ['cloudinit.config'], ['meta'])
+        if mod_locs:
+            mod = importer.import_module(mod_locs[0])
+            full_meta[mod.meta['id']] = mod.meta
+    return full_meta
 
 
 def error(message):
@@ -474,16 +489,16 @@ def handle_schema_args(name, args):
                 cfg_name = args.config_file
             print("Valid cloud-config:", cfg_name)
     elif args.docs:
-        schema_ids = [subschema['id'] for subschema in full_schema['allOf']]
-        schema_ids += ['all']
-        invalid_docs = set(args.docs).difference(set(schema_ids))
+        metas = get_meta()
+        metas['all'] = dict()
+
+        invalid_docs = set(args.docs).difference(set(metas.keys()))
         if invalid_docs:
             error('Invalid --docs value {0}. Must be one of: {1}'.format(
-                  list(invalid_docs), ', '.join(schema_ids)))
-        for subschema in full_schema['allOf']:
-            if 'all' in args.docs or subschema['id'] in args.docs:
-                print(get_schema_doc(subschema))
-
+                  list(invalid_docs), ', '.join(metas)))
+        for (key, meta_value) in metas.items():
+            if 'all' in args.docs or key in args.docs:
+                print(get_meta_doc(meta_value))
 
 def main():
     """Tool to validate schema of a cloud-config file or print schema docs."""

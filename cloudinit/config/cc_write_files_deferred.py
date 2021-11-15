@@ -10,12 +10,19 @@ from cloudinit.config.schema import validate_cloudconfig_schema
 from cloudinit import util
 from cloudinit.config.cc_write_files import (
     schema as write_files_schema, write_files, DEFAULT_DEFER)
+from cloudinit.settings import PER_INSTANCE
 
 
 schema = util.mergemanydict([
-    {
+    write_files_schema
+])
+
+# this is not used - should this just be a comment?
+meta = {
         'id': 'cc_write_files_deferred',
         'name': 'Write Deferred Files',
+        'distros': ['all'],
+        'frequency': PER_INSTANCE,
         'title': dedent("""\
             write certain files, whose creation as been deferred, during
             final stage
@@ -29,9 +36,7 @@ schema = util.mergemanydict([
             *Please note that his module is not exposed to the user through
             its own dedicated top-level directive.*
         """)
-    },
-    write_files_schema
-])
+}
 
 # Not exposed, because related modules should document this behaviour
 __doc__ = None
