@@ -412,7 +412,7 @@ def get_meta_doc(meta):
     return SCHEMA_DOC_TMPL.format(**meta_copy)
 
 
-@functools.cache
+@functools.lru_cache(maxsize=1)
 def get_schema():
     """Return jsonschema coalesced from all cc_* cloud-config module."""
     full_schema = {
@@ -429,7 +429,7 @@ def get_schema():
             full_schema['allOf'].append(mod.schema)
     return full_schema
 
-@functools.cache
+@functools.lru_cache(maxsize=1)
 def get_meta():
     """Return metadata coalesced from all cc_* cloud-config module."""
     full_meta = dict()

@@ -155,8 +155,7 @@ class ValidateCloudConfigSchemaTest(CiTestCase):
 
 class TestCloudConfigExamples:
     metas = get_metas()
-
-    params = [meta['examples'] for meta in metas.values()]
+    params = [meta['examples'] for meta in metas.values() if meta]
 
     @pytest.mark.parametrize("example", params)
     @skipUnlessJsonSchema()
