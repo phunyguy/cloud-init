@@ -157,7 +157,8 @@ class TestCloudConfigExamples:
     schema = get_schemas()
     metas = get_metas()
     params = [
-        meta['examples'] for meta in metas.values() if meta.get('examples')
+        meta['examples'] for meta in metas.values()
+        if meta and meta.get('examples')
     ]
 
     @pytest.mark.parametrize("example", params)
