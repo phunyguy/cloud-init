@@ -21,21 +21,21 @@ from cloudinit.tests.helpers import CiTestCase, mock, skipUnlessJsonSchema
 from cloudinit.config.schema import is_schema_byte_string
 
 
-def get_schemas() -> dict[str, dict]:
+def get_schemas() -> dict:
     '''Return all module schemas
 
     Assumes that module schemas have the variable name "schema"
     '''
     return get_module_variable('schema')
 
-def get_metas() -> dict[str, dict]:
+def get_metas() -> dict:
     '''Return all module metas
 
     Assumes that module schemas have the variable name "schema"
     '''
     return get_module_variable('meta')
 
-def get_module_variable(var_name) -> dict[str, dict]:
+def get_module_variable(var_name) -> dict:
     '''Inspect modules and get variable from module matching var_name
     '''
     schemas = {}
@@ -154,8 +154,11 @@ class ValidateCloudConfigSchemaTest(CiTestCase):
 
 
 class TestCloudConfigExamples:
+    schema = get_schemas()
     metas = get_metas()
-    params = [meta['examples'] for meta in metas.values() if meta]
+    params = [
+        meta['examples'] for meta in metas.values() if meta.get('examples')
+    ]
 
     @pytest.mark.parametrize("example", params)
     @skipUnlessJsonSchema()
