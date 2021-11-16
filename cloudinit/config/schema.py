@@ -7,6 +7,7 @@ from cloudinit.util import find_modules, load_file
 
 import argparse
 from collections import defaultdict
+from typing import TypedDict, List
 from copy import deepcopy
 import logging
 import os
@@ -40,6 +41,14 @@ SCHEMA_LIST_ITEM_TMPL = (
     '{prefix}Each item in **{prop_name}** list supports the following keys:')
 SCHEMA_EXAMPLES_HEADER = '\n**Examples**::\n\n'
 SCHEMA_EXAMPLES_SPACER_TEMPLATE = '\n    # --- Example{0} ---'
+
+class MetaSchema(TypedDict):
+    name: str
+    id: str
+    title: str
+    description: str
+    distros: List[str]
+    examples: List[str]
 
 
 class SchemaValidationError(ValueError):
@@ -374,7 +383,7 @@ def _get_property_doc(schema, prefix='    '):
     return '\n\n'.join(properties)
 
 
-def _get_meta_examples(meta):
+def _get_meta_examples(meta: MetaSchema) -> str:
     """Return restructured text describing the meta examples if present."""
     examples = meta.get('examples')
     if not examples:
@@ -391,7 +400,7 @@ def _get_meta_examples(meta):
     return rst_content
 
 
-def get_meta_doc(meta):
+def get_meta_doc(meta: MetaSchema) -> str:
     """Return reStructured text rendering the provided metadata.
 
     @param meta: Dict of metadata to render.
@@ -400,8 +409,10 @@ def get_meta_doc(meta):
 
     # Don't throw exceptions for a falsy meta variable.
     if not meta:
-        return None
-    meta_copy = deepcopy(meta)
+        return ''
+
+    # cast away type annotation
+    meta_copy = dict(deepcopy(meta))
     meta_copy['property_doc'] = _get_property_doc(meta)
     meta_copy['examples'] = _get_meta_examples(meta)
     if 'distros' not in meta_copy:
@@ -413,7 +424,7 @@ def get_meta_doc(meta):
 
 
 @functools.lru_cache(maxsize=1)
-def get_schema():
+def get_schema() -> dict:
     """Return jsonschema coalesced from all cc_* cloud-config module."""
     full_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
@@ -430,9 +441,16 @@ def get_schema():
     return full_schema
 
 @functools.lru_cache(maxsize=1)
-def get_meta():
+def get_meta() -> MetaSchema:
     """Return metadata coalesced from all cc_* cloud-config module."""
-    full_meta = dict()
+    full_meta: MetaSchema = {
+            'name': '',
+            'id': '',
+            'title': '',
+            'description': '',
+            'distros': [],
+            'examples': [],
+            }
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     potential_handlers = find_modules(configs_dir)
     for (_, mod_name) in potential_handlers.items():
@@ -499,6 +517,7 @@ def handle_schema_args(name, args):
         for (key, meta_value) in metas.items():
             if 'all' in args.docs or key in args.docs:
                 print(get_meta_doc(meta_value))
+
 
 def main():
     """Tool to validate schema of a cloud-config file or print schema docs."""
