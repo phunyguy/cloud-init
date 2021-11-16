@@ -28,12 +28,14 @@ def get_schemas() -> dict:
     '''
     return get_module_variable('schema')
 
+
 def get_metas() -> dict:
     '''Return all module metas
 
     Assumes that module schemas have the variable name "schema"
     '''
     return get_module_variable('meta')
+
 
 def get_module_variable(var_name) -> dict:
     '''Inspect modules and get variable from module matching var_name
@@ -58,6 +60,7 @@ def get_module_variable(var_name) -> dict:
                     schemas[module_name] = value
                     break
     return schemas
+
 
 class GetSchemaTest(CiTestCase):
 
@@ -160,6 +163,7 @@ class TestCloudConfigExamples:
         (meta['id'], example) for meta in metas.values()
         if meta and meta.get('examples') for example in meta.get('examples')
     ]
+
     @pytest.mark.parametrize("schema_id, example", params)
     @skipUnlessJsonSchema()
     def test_validateconfig_schema_of_example(self, schema_id, example):
@@ -561,7 +565,6 @@ class TestStrictMetaschema:
             else:
                 logging.warning(
                     "module %s has no schema definition", name)
-
 
     def validate_cloudconfig_schema_strict(self, schema: dict, name: str):
         """Validate schema definition against strict metaschema.

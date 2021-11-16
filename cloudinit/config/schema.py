@@ -45,13 +45,13 @@ SCHEMA_EXAMPLES_SPACER_TEMPLATE = '\n    # --- Example{0} ---'
 
 # Using alternate syntax for Python3.5 support
 MetaSchema = TypedDict('MetaSchema', {
-        'name': str,
-        'id': str,
-        'title': str,
-        'description': str,
-        'distros': List[str],
-        'examples': List[str]
-    })
+    'name': str,
+    'id': str,
+    'title': str,
+    'description': str,
+    'distros': List[str],
+    'examples': List[str]
+})
 
 
 class SchemaValidationError(ValueError):
@@ -443,17 +443,18 @@ def get_schema() -> dict:
             full_schema['allOf'].append(mod.schema)
     return full_schema
 
+
 @functools.lru_cache(maxsize=1)
 def get_meta() -> MetaSchema:
     """Return metadata coalesced from all cc_* cloud-config module."""
     full_meta: MetaSchema = {
-            'name': '',
-            'id': '',
-            'title': '',
-            'description': '',
-            'distros': [],
-            'examples': [],
-            }
+        'name': '',
+        'id': '',
+        'title': '',
+        'description': '',
+        'distros': [],
+        'examples': [],
+    }
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     potential_handlers = find_modules(configs_dir)
     for (_, mod_name) in potential_handlers.items():
