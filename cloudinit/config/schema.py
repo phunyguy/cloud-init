@@ -42,13 +42,16 @@ SCHEMA_LIST_ITEM_TMPL = (
 SCHEMA_EXAMPLES_HEADER = '\n**Examples**::\n\n'
 SCHEMA_EXAMPLES_SPACER_TEMPLATE = '\n    # --- Example{0} ---'
 
-class MetaSchema(TypedDict):
-    name: str
-    id: str
-    title: str
-    description: str
-    distros: List[str]
-    examples: List[str]
+
+# Using alternate syntax for Python3.5 support
+MetaSchema = TypedDict('MetaSchema', {
+        'name': str,
+        'id': str,
+        'title': str,
+        'description': str,
+        'distros': List[str],
+        'examples': List[str]
+    })
 
 
 class SchemaValidationError(ValueError):
