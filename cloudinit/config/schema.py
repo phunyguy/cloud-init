@@ -403,7 +403,7 @@ def _get_meta_examples(meta: MetaSchema) -> str:
     return rst_content
 
 
-def get_meta_doc(meta: MetaSchema) -> str:
+def get_meta_doc(meta: dict) -> str:
     """Return reStructured text rendering the provided metadata.
 
     @param meta: Dict of metadata to render.
@@ -418,8 +418,6 @@ def get_meta_doc(meta: MetaSchema) -> str:
     meta_copy = dict(deepcopy(meta))
     meta_copy['property_doc'] = _get_property_doc(meta)
     meta_copy['examples'] = _get_meta_examples(meta)
-    if 'distros' not in meta_copy:
-        print(meta_copy)
     meta_copy['distros'] = ', '.join(meta['distros'])
     # Need an underbar of the same length as the name
     meta_copy['title_underbar'] = re.sub(r'.', '-', meta['name'])
@@ -447,14 +445,7 @@ def get_schema() -> dict:
 @functools.lru_cache(maxsize=1)
 def get_meta() -> MetaSchema:
     """Return metadata coalesced from all cc_* cloud-config module."""
-    full_meta: MetaSchema = {
-        'name': '',
-        'id': '',
-        'title': '',
-        'description': '',
-        'distros': [],
-        'examples': [],
-    }
+    full_meta: MetaSchema = dict()
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     potential_handlers = find_modules(configs_dir)
     for (_, mod_name) in potential_handlers.items():
@@ -511,7 +502,7 @@ def handle_schema_args(name, args):
                 cfg_name = args.config_file
             print("Valid cloud-config:", cfg_name)
     elif args.docs:
-        metas = get_meta()
+        metas = dict(get_meta())
         metas['all'] = dict()
 
         invalid_docs = set(args.docs).difference(set(metas.keys()))
