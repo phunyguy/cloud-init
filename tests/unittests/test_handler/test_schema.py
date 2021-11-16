@@ -157,13 +157,12 @@ class TestCloudConfigExamples:
     schema = get_schemas()
     metas = get_metas()
     params = [
-        meta['examples'] for meta in metas.values()
-        if meta and meta.get('examples')
+        (meta['id'], example) for meta in metas.values()
+        if meta and meta.get('examples') for example in meta.get('examples')
     ]
-
-    @pytest.mark.parametrize("example", params)
+    @pytest.mark.parametrize("schema_id, example", params)
     @skipUnlessJsonSchema()
-    def test_validateconfig_schema_of_example(self, example):
+    def test_validateconfig_schema_of_example(self, schema_id, example):
         """ For a given example in a config module we test if it is valid
         according to the unified schema of all config modules
         """
@@ -558,13 +557,13 @@ class TestStrictMetaschema:
         '''Validate all modules with a stricter metaschema'''
         for (name, value) in get_schemas().items():
             if value:
-                self.validate_cloudconfig_schema(value, name)
+                self.validate_cloudconfig_schema_strict(value, name)
             else:
                 logging.warning(
                     "module %s has no schema definition", name)
 
 
-    def validate_cloudconfig_schema(self, schema: dict, name: str):
+    def validate_cloudconfig_schema_strict(self, schema: dict, name: str):
         """Validate schema definition against strict metaschema.
 
         @param schema: jsonschema dict describing the supported schema
