@@ -15,6 +15,7 @@ import re
 import sys
 import yaml
 import functools
+from typing import Union
 
 _YAML_MAP = {True: 'true', False: 'false', None: 'null'}
 SCHEMA_UNDEFINED = b'UNDEFINED'
@@ -36,7 +37,7 @@ SCHEMA_DOC_TMPL = """
 {property_doc}
 {examples}
 """
-SCHEMA_PROPERTY_TMPL = '{prefix}**{prop_name}:** ({type}) {description}'
+SCHEMA_PROPERTY_TMPL = '{prefix}**{prop_name}:** ({prop_type})'
 SCHEMA_LIST_ITEM_TMPL = (
     '{prefix}Each item in **{prop_name}** list supports the following keys:')
 SCHEMA_EXAMPLES_HEADER = '\n**Examples**::\n\n'
@@ -303,8 +304,10 @@ def _schemapath_for_cloudconfig(config, original_content):
     return schema_line_numbers
 
 
-def _get_property_type(property_dict):
-    """Return a string representing a property type from a given jsonschema."""
+def _get_property_type(property_dict: dict) -> Union[str, bytes]:
+    """Return a string or bytes representing a property type from a given
+    jsonschema.
+    """
     property_type = property_dict.get('type', SCHEMA_UNDEFINED)
     if property_type == SCHEMA_UNDEFINED and property_dict.get('enum'):
         property_type = [
@@ -317,14 +320,14 @@ def _get_property_type(property_dict):
     for sub_item in items.get('oneOf', {}):
         if sub_property_type:
             sub_property_type += '/'
-        sub_property_type += '(' + _get_property_type(sub_item) + ')'
+        sub_property_type += '({})'.format(_get_property_type(sub_item))
     if sub_property_type:
         return '{0} of {1}'.format(property_type, sub_property_type)
     return property_type
 
 
-def _parse_description(description, prefix):
-    """Parse description from the schema in a format that we can better
+def _parse_description(description, prefix) -> str:
+    """Parse description from the meta in a format that we can better
     display in our docs. This parser does three things:
 
     - Guarantee that a paragraph will be in a single line
@@ -332,7 +335,7 @@ def _parse_description(description, prefix):
       the first paragraph
     - Proper align lists of items
 
-    @param description: The original description in the schema.
+    @param description: The original description in the meta.
     @param prefix: The number of spaces used to align the current description
     """
     list_paragraph = prefix * 3
@@ -350,14 +353,12 @@ def _get_property_doc(schema: dict, prefix='    ') -> str:
     new_prefix = prefix + '    '
     properties = []
     for prop_key, prop_config in schema.get('properties', {}).items():
-        # Define prop_name and dscription for SCHEMA_PROPERTY_TMPL
-        description = prop_config.get('description', '')
+        # Define prop_name and description for SCHEMA_PROPERTY_TMPL
 
         properties.append(SCHEMA_PROPERTY_TMPL.format(
             prefix=prefix,
             prop_name=prop_key,
-            type=_get_property_type(prop_config),
-            description=_parse_description(description, prefix)))
+            prop_type=_get_property_type(prop_config)))
         items = prop_config.get('items')
         if items:
             if isinstance(items, list):
@@ -375,7 +376,7 @@ def _get_property_doc(schema: dict, prefix='    ') -> str:
     return '\n\n'.join(properties)
 
 
-def _get_examples(meta: dict) -> str:
+def _get_examples(meta: MetaSchema) -> str:
     """Return restructured text describing the meta examples if present."""
     examples = meta.get('examples')
     if not examples:
@@ -444,9 +445,9 @@ def get_schema() -> dict:
 
 
 @functools.lru_cache(maxsize=1)
-def get_meta() -> MetaSchema:
+def get_meta() -> dict:
     """Return metadata coalesced from all cc_* cloud-config module."""
-    full_meta: MetaSchema = {
+    default_meta: MetaSchema = {
         'name': '',
         'id': '',
         'title': '',
@@ -455,6 +456,7 @@ def get_meta() -> MetaSchema:
         'distros': [],
         'examples': [],
     }
+    full_meta = dict()
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     potential_handlers = find_modules(configs_dir)
     for (_, mod_name) in potential_handlers.items():

@@ -219,7 +219,10 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
             self.stderr.getvalue())
 
     def test_wb_devel_schema_subcommand_doc_content(self):
-        """Validate that doc content is sane from known examples."""
+        """Validate that doc content is sane from known examples.
+
+        Ensures that schema is returned
+        """
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
             self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'all'])
@@ -234,8 +237,9 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
         stdout = stdout.getvalue()
         for expected in expected_doc_sections:
             if expected not in stdout:
+                import pdb; pdb.set_trace()
                 print(expected)
-                #print(stdout)
+                print(stdout)
                 assert False
             self.assertIn(expected, stdout)
 

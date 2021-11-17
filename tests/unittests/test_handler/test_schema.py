@@ -259,7 +259,7 @@ class GetSchemaDocTest(CiTestCase):
     def test_get_meta_doc_returns_restructured_text(self):
         """get_meta_doc returns restructured text for a cloudinit schema."""
         schema = {'properties': {
-            'prop1': {'type': 'array', 'description': 'prop-description',
+            'prop1': {'type': 'array',
                       'items': {'type': 'integer'}}}}
         doc = get_meta_doc(self.meta, schema)
         self.assertEqual(
@@ -277,7 +277,7 @@ class GetSchemaDocTest(CiTestCase):
                 **Supported distros:** debian, rhel
 
                 **Config schema**:
-                    **prop1:** (array of integer) prop-description
+                    **prop1:** (array of integer)
 
                 **Examples**::
 
@@ -290,19 +290,17 @@ class GetSchemaDocTest(CiTestCase):
     def test_get_meta_doc_handles_multiple_types(self):
         """get_meta_doc delimits multiple property types with a '/'."""
         schema = {'properties': {
-            'prop1': {'type': ['string', 'integer'],
-                      'description': 'prop-description'}}}
+            'prop1': {'type': ['string', 'integer']}}}
         self.assertIn(
-            '**prop1:** (string/integer) prop-description',
+            '**prop1:** (string/integer)',
             get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_enum_types(self):
         """get_meta_doc converts enum types to yaml and delimits with '/'."""
         schema = {'properties': {
-            'prop1': {'enum': [True, False, 'stuff'],
-                      'description': 'prop-description'}}}
+            'prop1': {'enum': [True, False, 'stuff']}}}
         self.assertIn(
-            '**prop1:** (true/false/stuff) prop-description',
+            '**prop1:** (true/false/stuff)',
             get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_nested_oneof_property_types(self):
@@ -311,23 +309,22 @@ class GetSchemaDocTest(CiTestCase):
             'prop1': {'type': 'array',
                       'items': {
                               'oneOf': [{'type': 'string'},
-                                        {'type': 'integer'}]},
-                      'description': 'prop-description'}}}
+                                        {'type': 'integer'}]}}}}
         self.assertIn(
-            '**prop1:** (array of (string)/(integer)) prop-description',
+            '**prop1:** (array of (string)/(integer))',
             get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_string_examples(self):
         """get_meta_doc properly indented examples as a list of strings."""
         schema = {'properties': {
-            'prop1': {'type': 'array', 'description': 'prop-description',
+            'prop1': {'type': 'array',
                       'items': {'type': 'integer'}}}}
         meta_doc = get_meta_doc(self.meta, schema)
         print(meta_doc)
         self.assertIn(
             dedent("""
                 **Config schema**:
-                    **prop1:** (array of integer) prop-description
+                    **prop1:** (array of integer)
 
                 **Examples**::
 
@@ -344,17 +341,6 @@ class GetSchemaDocTest(CiTestCase):
             'properties': {
                 'p1': {
                     'type': 'string',
-                    'description': dedent("""\
-                        This item
-                        has the
-                        following options:
-
-                          - option1
-                          - option2
-                          - option3
-
-                        The default value is
-                        option1""")
                 }
             }
         }
@@ -362,13 +348,7 @@ class GetSchemaDocTest(CiTestCase):
         self.assertIn(
             dedent("""
                 **Config schema**:
-                    **p1:** (string) This item has the following options:
-
-                            - option1
-                            - option2
-                            - option3
-
-                    The default value is option1
+                    **p1:** (string)
             """),
             get_meta_doc(self.meta, schema))
 
@@ -378,8 +358,7 @@ class GetSchemaDocTest(CiTestCase):
             'prop1': {'type': 'array',
                   'items': {
                       'oneOf': [{'type': 'string'},
-                                {'type': 'integer'}]},
-                      'description': 'prop-description'}}}
+                                {'type': 'integer'}]}}}}
         for key in self.meta:
             invalid_meta = copy(self.meta)
             val = invalid_meta.pop(key)
