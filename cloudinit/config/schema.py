@@ -43,7 +43,6 @@ SCHEMA_EXAMPLES_HEADER = '\n**Examples**::\n\n'
 SCHEMA_EXAMPLES_SPACER_TEMPLATE = '\n    # --- Example{0} ---'
 
 
-
 class SchemaValidationError(ValueError):
     """Raised when validating a cloud-config file against a schema."""
 
@@ -346,7 +345,7 @@ def _parse_description(description, prefix):
     return description
 
 
-def _get_property_doc(schema: dict, prefix='    '):
+def _get_property_doc(schema: dict, prefix='    ') -> str:
     """Return restructured text describing the supported schema properties."""
     new_prefix = prefix + '    '
     properties = []
@@ -405,13 +404,13 @@ def get_meta_doc(meta: MetaSchema, schema: dict) -> str:
         return ''
     keys = set(meta.keys())
     expected = set({
-            'id',
-            'title',
-            'examples',
-            'frequency',
-            'distros',
-            'description',
-            'name'})
+        'id',
+        'title',
+        'examples',
+        'frequency',
+        'distros',
+        'description',
+        'name'})
     if keys != expected:
         raise KeyError(
             'Missing module metadata key(s) {}'.format(expected - keys))
@@ -419,7 +418,7 @@ def get_meta_doc(meta: MetaSchema, schema: dict) -> str:
     # cast away type annotation
     meta_copy = dict(deepcopy(meta))
     meta_copy['property_doc'] = _get_property_doc(schema)
-    meta_copy['examples'] = _get_examples(schema)
+    meta_copy['examples'] = _get_examples(meta)
     meta_copy['distros'] = ', '.join(meta['distros'])
     # Need an underbar of the same length as the name
     meta_copy['title_underbar'] = re.sub(r'.', '-', meta['name'])
@@ -448,14 +447,14 @@ def get_schema() -> dict:
 def get_meta() -> MetaSchema:
     """Return metadata coalesced from all cc_* cloud-config module."""
     full_meta: MetaSchema = {
-            'name': '',
-            'id': '',
-            'title': '',
-            'description': '',
-            'frequency': '',
-            'distros': [],
-            'examples': [],
-            }
+        'name': '',
+        'id': '',
+        'title': '',
+        'description': '',
+        'frequency': '',
+        'distros': [],
+        'examples': [],
+    }
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     potential_handlers = find_modules(configs_dir)
     for (_, mod_name) in potential_handlers.items():

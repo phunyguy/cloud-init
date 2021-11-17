@@ -246,21 +246,22 @@ class GetSchemaDocTest(CiTestCase):
     def setUp(self):
         super(GetSchemaDocTest, self).setUp()
         self.meta: MetaSchema = {
-            'title':        'title',
-            'description':  'description',
-            'id':           'id',
-            'name':         'name',
-            'frequency':    'frequency',
-            'distros':      ['debian', 'rhel'],
-            'examples':     [
+            'title': 'title',
+            'description': 'description',
+            'id': 'id',
+            'name': 'name',
+            'frequency': 'frequency',
+            'distros': ['debian', 'rhel'],
+            'examples': [
                 'ex1:\n    [don\'t, expand, "this"]', 'ex2: true'],
         }
 
     def test_get_meta_doc_returns_restructured_text(self):
         """get_meta_doc returns restructured text for a cloudinit schema."""
         schema = {'properties': {
-                'prop1': {'type': 'array', 'description': 'prop-description',
-                          'items': {'type': 'integer'}}}}
+            'prop1': {'type': 'array', 'description': 'prop-description',
+                      'items': {'type': 'integer'}}}}
+        doc = get_meta_doc(self.meta, schema)
         self.assertEqual(
             dedent("""
                 name
@@ -276,14 +277,21 @@ class GetSchemaDocTest(CiTestCase):
                 **Supported distros:** debian, rhel
 
                 **Config schema**:
-                    **prop1:** (array of integer) prop-description\n\n"""),
-            get_meta_doc(self.meta, schema))
+                    **prop1:** (array of integer) prop-description
+
+                **Examples**::
+
+                    ex1:
+                        [don't, expand, "this"]
+                    # --- Example2 ---
+                    ex2: true
+            """), doc)
 
     def test_get_meta_doc_handles_multiple_types(self):
         """get_meta_doc delimits multiple property types with a '/'."""
         schema = {'properties': {
-                'prop1': {'type': ['string', 'integer'],
-                          'description': 'prop-description'}}}
+            'prop1': {'type': ['string', 'integer'],
+                      'description': 'prop-description'}}}
         self.assertIn(
             '**prop1:** (string/integer) prop-description',
             get_meta_doc(self.meta, schema))
@@ -291,8 +299,8 @@ class GetSchemaDocTest(CiTestCase):
     def test_get_meta_doc_handles_enum_types(self):
         """get_meta_doc converts enum types to yaml and delimits with '/'."""
         schema = {'properties': {
-                'prop1': {'enum': [True, False, 'stuff'],
-                          'description': 'prop-description'}}}
+            'prop1': {'enum': [True, False, 'stuff'],
+                      'description': 'prop-description'}}}
         self.assertIn(
             '**prop1:** (true/false/stuff) prop-description',
             get_meta_doc(self.meta, schema))
@@ -300,11 +308,11 @@ class GetSchemaDocTest(CiTestCase):
     def test_get_meta_doc_handles_nested_oneof_property_types(self):
         """get_meta_doc describes array items oneOf declarations in type."""
         schema = {'properties': {
-                'prop1': {'type': 'array',
-                          'items': {
+            'prop1': {'type': 'array',
+                      'items': {
                               'oneOf': [{'type': 'string'},
                                         {'type': 'integer'}]},
-                          'description': 'prop-description'}}}
+                      'description': 'prop-description'}}}
         self.assertIn(
             '**prop1:** (array of (string)/(integer)) prop-description',
             get_meta_doc(self.meta, schema))
@@ -312,8 +320,8 @@ class GetSchemaDocTest(CiTestCase):
     def test_get_meta_doc_handles_string_examples(self):
         """get_meta_doc properly indented examples as a list of strings."""
         schema = {'properties': {
-                'prop1': {'type': 'array', 'description': 'prop-description',
-                          'items': {'type': 'integer'}}}}
+            'prop1': {'type': 'array', 'description': 'prop-description',
+                      'items': {'type': 'integer'}}}}
         meta_doc = get_meta_doc(self.meta, schema)
         print(meta_doc)
         self.assertIn(
@@ -330,10 +338,10 @@ class GetSchemaDocTest(CiTestCase):
             """),
             meta_doc)
 
-
     def test_get_meta_doc_properly_parse_description(self):
         """get_meta_doc description properly formatted"""
-        schema = {'properties': {
+        schema = {
+            'properties': {
                 'p1': {
                     'type': 'string',
                     'description': dedent("""\
@@ -348,7 +356,8 @@ class GetSchemaDocTest(CiTestCase):
                         The default value is
                         option1""")
                 }
-            }}
+            }
+        }
 
         self.assertIn(
             dedent("""
@@ -366,11 +375,11 @@ class GetSchemaDocTest(CiTestCase):
     def test_get_meta_doc_raises_key_errors(self):
         """get_meta_doc raises KeyErrors on missing keys."""
         schema = {'properties': {
-                'prop1': {'type': 'array',
-                          'items': {
-                              'oneOf': [{'type': 'string'},
-                                        {'type': 'integer'}]},
-                          'description': 'prop-description'}}}
+            'prop1': {'type': 'array',
+                  'items': {
+                      'oneOf': [{'type': 'string'},
+                                {'type': 'integer'}]},
+                      'description': 'prop-description'}}}
         for key in self.meta:
             invalid_meta = copy(self.meta)
             val = invalid_meta.pop(key)
@@ -446,9 +455,9 @@ class AnnotatedCloudconfigFileTest(CiTestCase):
 
 
 class TestMain:
-
     exclusive_combinations = itertools.combinations(
-        ["--system", "--docs all", "--config-file something"], 2
+        ["--system", "--docs all", "--config-file something"],
+        2
     )
 
     @pytest.mark.parametrize("params", exclusive_combinations)
