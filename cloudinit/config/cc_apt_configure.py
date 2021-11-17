@@ -402,7 +402,7 @@ schema = {
     }
 }
 
-__doc__ = get_meta_doc(meta)
+__doc__ = get_meta_doc(meta, schema)
 
 
 # place where apt stores cached repository data

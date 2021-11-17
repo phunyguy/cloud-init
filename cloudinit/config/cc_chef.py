@@ -361,7 +361,7 @@ schema = {
     }
 }
 
-__doc__ = get_meta_doc(meta)
+__doc__ = get_meta_doc(meta, schema)
 
 
 def post_run_chef(chef_cfg, log):

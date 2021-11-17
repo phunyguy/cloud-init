@@ -190,7 +190,7 @@ schema = {
     }
 }
 
-__doc__ = get_meta_doc(meta)  # Supplement python help()
+__doc__ = get_meta_doc(meta, schema)  # Supplement python help()
 
 
 def handle(name, cfg, _cloud, log, _args):

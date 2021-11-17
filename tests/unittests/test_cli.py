@@ -1,6 +1,7 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
 import os
+import contextlib
 import io
 from collections import namedtuple
 
@@ -220,18 +221,22 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
     def test_wb_devel_schema_subcommand_doc_content(self):
         """Validate that doc content is sane from known examples."""
         stdout = io.StringIO()
-        self.patchStdoutAndStderr(stdout=stdout)
-        self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'all'])
-        expected_doc_sections = [
-            '**Supported distros:** all',
-            ('**Supported distros:** almalinux, alpine, centos, cloudlinux, '
-             'debian, eurolinux, fedora, openEuler, opensuse, photon, rhel, '
-             'rocky, sles, ubuntu, virtuozzo'),
-            '**Config schema**:\n    **resize_rootfs:** (true/false/noblock)',
-            '**Examples**::\n\n    runcmd:\n        - [ ls, -l, / ]\n'
-        ]
+        with contextlib.redirect_stdout(stdout):
+            self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'all'])
+            expected_doc_sections = [
+                '**Supported distros:** all',
+                ('**Supported distros:** almalinux, alpine, centos, cloudlinux, '
+                 'debian, eurolinux, fedora, openEuler, opensuse, photon, rhel, '
+                 'rocky, sles, ubuntu, virtuozzo'),
+                '**Config schema**:\n    **resize_rootfs:** (true/false/noblock)',
+                '**Examples**::\n\n    runcmd:\n        - [ ls, -l, / ]\n'
+            ]
         stdout = stdout.getvalue()
         for expected in expected_doc_sections:
+            if expected not in stdout:
+                print(expected)
+                #print(stdout)
+                assert False
             self.assertIn(expected, stdout)
 
     @mock.patch('cloudinit.cmd.main.main_single')

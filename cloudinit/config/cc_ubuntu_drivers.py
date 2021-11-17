@@ -67,7 +67,7 @@ schema = {
 OLD_UBUNTU_DRIVERS_STDERR_NEEDLE = (
     "ubuntu-drivers: error: argument <command>: invalid choice: 'install'")
 
-__doc__ = get_meta_doc(meta)  # Supplement python help()
+__doc__ = get_meta_doc(meta, schema)  # Supplement python help()
 
 
 # Use a debconf template to configure a global debconf variable

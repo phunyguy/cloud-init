@@ -84,7 +84,7 @@ schema = {
     }
 }
 
-__doc__ = get_meta_doc(meta)
+__doc__ = get_meta_doc(meta, schema)
 
 
 HOTPLUG_UDEV_PATH = "/etc/udev/rules.d/10-cloud-init-hook-hotplug.rules"

@@ -147,7 +147,7 @@ schema = {
     }
 }
 
-__doc__ = get_meta_doc(meta)  # Supplement python help()
+__doc__ = get_meta_doc(meta, schema)  # Supplement python help()
 
 SNAP_CMD = "snap"
 ASSERTIONS_FILE = "/var/lib/cloud/instance/snapd.assertions"

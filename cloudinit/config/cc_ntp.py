@@ -304,7 +304,7 @@ REQUIRED_NTP_CONFIG_KEYS = frozenset([
     'check_exe', 'confpath', 'packages', 'service_name'])
 
 
-__doc__ = get_meta_doc(meta)  # Supplement python help()
+__doc__ = get_meta_doc(meta, schema)  # Supplement python help()
 
 
 def distro_ntp_client_configs(distro):

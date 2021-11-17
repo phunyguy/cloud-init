@@ -356,7 +356,7 @@ def _parse_description(description, prefix):
     return description
 
 
-def _get_property_doc(schema, prefix='    '):
+def _get_property_doc(schema: dict, prefix='    '):
     """Return restructured text describing the supported schema properties."""
     new_prefix = prefix + '    '
     properties = []
@@ -403,7 +403,7 @@ def _get_meta_examples(meta: MetaSchema) -> str:
     return rst_content
 
 
-def get_meta_doc(meta: dict) -> str:
+def get_meta_doc(meta: dict, schema: dict) -> str:
     """Return reStructured text rendering the provided metadata.
 
     @param meta: Dict of metadata to render.
@@ -416,7 +416,7 @@ def get_meta_doc(meta: dict) -> str:
 
     # cast away type annotation
     meta_copy = dict(deepcopy(meta))
-    meta_copy['property_doc'] = _get_property_doc(meta)
+    meta_copy['property_doc'] = _get_property_doc(schema)
     meta_copy['examples'] = _get_meta_examples(meta)
     meta_copy['distros'] = ', '.join(meta['distros'])
     # Need an underbar of the same length as the name
@@ -511,7 +511,7 @@ def handle_schema_args(name, args):
                   list(invalid_docs), ', '.join(metas)))
         for (key, meta_value) in metas.items():
             if 'all' in args.docs or key in args.docs:
-                print(get_meta_doc(meta_value))
+                print(get_meta_doc(meta_value, full_schema))
 
 
 def main():
