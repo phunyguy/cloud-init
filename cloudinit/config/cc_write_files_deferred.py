@@ -21,6 +21,7 @@ schema = util.mergemanydict([
 meta = {
     'id': 'cc_write_files_deferred',
     'name': 'Write Deferred Files',
+    'examples': [],
     'distros': ['all'],
     'frequency': PER_INSTANCE,
     'title': dedent("""\

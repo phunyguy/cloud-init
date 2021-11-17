@@ -15,7 +15,7 @@ from yaml import safe_load
 from cloudinit.config.schema import (
     CLOUD_CONFIG_HEADER, SchemaValidationError, annotated_cloudconfig_file,
     get_meta_doc, get_schema, validate_cloudconfig_file,
-    validate_cloudconfig_schema, main)
+    validate_cloudconfig_schema, main, MetaSchema)
 from cloudinit.util import write_file
 from cloudinit.tests.helpers import CiTestCase, mock, skipUnlessJsonSchema
 from cloudinit.config.schema import is_schema_byte_string
@@ -245,18 +245,22 @@ class GetSchemaDocTest(CiTestCase):
 
     def setUp(self):
         super(GetSchemaDocTest, self).setUp()
-        self.required_schema = {
-            'title': 'title', 'description': 'description', 'id': 'id',
-            'name': 'name', 'frequency': 'frequency',
-            'distros': ['debian', 'rhel']}
+        self.meta: MetaSchema = {
+            'title':        'title',
+            'description':  'description',
+            'id':           'id',
+            'name':         'name',
+            'frequency':    'frequency',
+            'distros':      ['debian', 'rhel'],
+            'examples':     [
+                'ex1:\n    [don\'t, expand, "this"]', 'ex2: true'],
+        }
 
     def test_get_meta_doc_returns_restructured_text(self):
         """get_meta_doc returns restructured text for a cloudinit schema."""
-        full_schema = copy(self.required_schema)
-        full_schema.update(
-            {'properties': {
+        schema = {'properties': {
                 'prop1': {'type': 'array', 'description': 'prop-description',
-                          'items': {'type': 'integer'}}}})
+                          'items': {'type': 'integer'}}}}
         self.assertEqual(
             dedent("""
                 name
@@ -273,52 +277,45 @@ class GetSchemaDocTest(CiTestCase):
 
                 **Config schema**:
                     **prop1:** (array of integer) prop-description\n\n"""),
-            get_meta_doc(full_schema))
+            get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_multiple_types(self):
         """get_meta_doc delimits multiple property types with a '/'."""
-        full_schema = copy(self.required_schema)
-        full_schema.update(
-            {'properties': {
+        schema = {'properties': {
                 'prop1': {'type': ['string', 'integer'],
-                          'description': 'prop-description'}}})
+                          'description': 'prop-description'}}}
         self.assertIn(
             '**prop1:** (string/integer) prop-description',
-            get_meta_doc(full_schema))
+            get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_enum_types(self):
         """get_meta_doc converts enum types to yaml and delimits with '/'."""
-        full_schema = copy(self.required_schema)
-        full_schema.update(
-            {'properties': {
+        schema = {'properties': {
                 'prop1': {'enum': [True, False, 'stuff'],
-                          'description': 'prop-description'}}})
+                          'description': 'prop-description'}}}
         self.assertIn(
             '**prop1:** (true/false/stuff) prop-description',
-            get_meta_doc(full_schema))
+            get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_nested_oneof_property_types(self):
         """get_meta_doc describes array items oneOf declarations in type."""
-        full_schema = copy(self.required_schema)
-        full_schema.update(
-            {'properties': {
+        schema = {'properties': {
                 'prop1': {'type': 'array',
                           'items': {
                               'oneOf': [{'type': 'string'},
                                         {'type': 'integer'}]},
-                          'description': 'prop-description'}}})
+                          'description': 'prop-description'}}}
         self.assertIn(
             '**prop1:** (array of (string)/(integer)) prop-description',
-            get_meta_doc(full_schema))
+            get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_handles_string_examples(self):
         """get_meta_doc properly indented examples as a list of strings."""
-        full_schema = copy(self.required_schema)
-        full_schema.update(
-            {'examples': ['ex1:\n    [don\'t, expand, "this"]', 'ex2: true'],
-             'properties': {
+        schema = {'properties': {
                 'prop1': {'type': 'array', 'description': 'prop-description',
-                          'items': {'type': 'integer'}}}})
+                          'items': {'type': 'integer'}}}}
+        meta_doc = get_meta_doc(self.meta, schema)
+        print(meta_doc)
         self.assertIn(
             dedent("""
                 **Config schema**:
@@ -331,13 +328,12 @@ class GetSchemaDocTest(CiTestCase):
                     # --- Example2 ---
                     ex2: true
             """),
-            get_meta_doc(full_schema))
+            meta_doc)
+
 
     def test_get_meta_doc_properly_parse_description(self):
         """get_meta_doc description properly formatted"""
-        full_schema = copy(self.required_schema)
-        full_schema.update(
-            {'properties': {
+        schema = {'properties': {
                 'p1': {
                     'type': 'string',
                     'description': dedent("""\
@@ -353,7 +349,6 @@ class GetSchemaDocTest(CiTestCase):
                         option1""")
                 }
             }}
-        )
 
         self.assertIn(
             dedent("""
@@ -366,15 +361,24 @@ class GetSchemaDocTest(CiTestCase):
 
                     The default value is option1
             """),
-            get_meta_doc(full_schema))
+            get_meta_doc(self.meta, schema))
 
     def test_get_meta_doc_raises_key_errors(self):
         """get_meta_doc raises KeyErrors on missing keys."""
-        for key in self.required_schema:
-            invalid_schema = copy(self.required_schema)
-            invalid_schema.pop(key)
+        schema = {'properties': {
+                'prop1': {'type': 'array',
+                          'items': {
+                              'oneOf': [{'type': 'string'},
+                                        {'type': 'integer'}]},
+                          'description': 'prop-description'}}}
+        for key in self.meta:
+            invalid_meta = copy(self.meta)
+            val = invalid_meta.pop(key)
             with self.assertRaises(KeyError) as context_mgr:
-                get_meta_doc(invalid_schema)
+                get_meta_doc(invalid_meta, schema)
+                print(invalid_meta)
+                print(val)
+            print(context_mgr.exception)
             self.assertIn(key, str(context_mgr.exception))
 
 

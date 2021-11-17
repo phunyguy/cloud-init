@@ -9,9 +9,31 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
 import sys
+import types
+from typing import TypedDict, List
+
+# Using alternate syntax for Python3.5 support
+MetaSchema = TypedDict(
+    'MetaSchema', {
+        'name': str,
+        'id': str,
+        'title': str,
+        'description': str,
+        'distros': List[str],
+        'examples': List[str],
+        'frequency': str
+    })
 
 
-def import_module(module_name):
+class CloudInitModule(types.ModuleType):
+    '''Hint to modules that use import_module that all dynamically imported
+    modules should have schema and meta variables
+    '''
+    schema: dict
+    meta: MetaSchema
+
+
+def import_module(module_name) -> CloudInitModule:
     __import__(module_name)
     return sys.modules[module_name]
 
@@ -45,5 +67,6 @@ def find_module(base_name, search_paths, required_attrs=None):
         if found_attrs == len(required_attrs):
             found_paths.append(full_path)
     return (found_paths, lookup_paths)
+
 
 # vi: ts=4 expandtab
