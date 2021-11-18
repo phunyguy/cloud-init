@@ -10,19 +10,22 @@
 
 import sys
 import types
-from typing import TypedDict, List
+import typing
 
 # pyver: 3.5 -> 3.8
-MetaSchema = TypedDict(
-    'MetaSchema', {
-        'name': str,
-        'id': str,
-        'title': str,
-        'description': str,
-        'distros': List[str],
-        'examples': List[str],
-        'frequency': str
-    })
+if sys.version_info.minor > 8:
+    MetaSchema = typing.TypedDict(
+        'MetaSchema', {
+            'name': str,
+            'id': str,
+            'title': str,
+            'description': str,
+            'distros': typing.List[str],
+            'examples': typing.List[str],
+            'frequency': str
+        })
+else:
+    MetaSchema = dict
 
 
 class CloudInitModule(types.ModuleType):
