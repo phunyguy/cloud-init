@@ -424,9 +424,11 @@ def get_meta_doc(meta: MetaSchema, schema: dict) -> str:
     template = SCHEMA_DOC_TMPL.format(**meta_copy)
     return template
 
+
 def get_modules() -> dict:
     configs_dir = os.path.dirname(os.path.abspath(__file__))
     return find_modules(configs_dir)
+
 
 def load_doc(module: list) -> str:
     '''Load module docstrings
@@ -442,6 +444,7 @@ def load_doc(module: list) -> str:
                 mod = importer.import_module(mod_locs[0])
                 docs += mod.__doc__ or ""
     return docs
+
 
 def get_schema() -> dict:
     """Return jsonschema coalesced from all cc_* cloud-config module."""
@@ -516,6 +519,7 @@ def handle_schema_args(name, args):
             print("Valid cloud-config:", cfg_name)
     elif args.docs:
         print(load_doc(args.docs))
+
 
 def main():
     """Tool to validate schema of a cloud-config file or print schema docs."""
