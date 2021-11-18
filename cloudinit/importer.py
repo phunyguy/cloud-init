@@ -9,11 +9,10 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
 import sys
-import types
 import typing
 
 # pyver: 3.5 -> 3.8
-# annotations are most valuable for development, but don't break backwards
+# annotations add value for development, but don't break backwards
 # compatibility
 if sys.version_info.minor > 8:
     MetaSchema = typing.TypedDict(
@@ -26,19 +25,11 @@ if sys.version_info.minor > 8:
             'examples': typing.List[str],
             'frequency': str
         })
-
-    class CloudInitModule(types.ModuleType):
-        '''Hint to modules that use import_module that all dynamically imported
-        modules might have schema and meta variables
-        '''
-        schema: dict
-        meta: MetaSchema
 else:
     MetaSchema = dict
-    CloudInitModule = types.ModuleType
 
 
-def import_module(module_name) -> CloudInitModule:
+def import_module(module_name):
     __import__(module_name)
     return sys.modules[module_name]
 
