@@ -243,8 +243,7 @@ class GetSchemaDocTest(CiTestCase):
 
     def setUp(self):
         super(GetSchemaDocTest, self).setUp()
-        self.meta: MetaSchema
-        self.meta = {
+        self.meta = MetaSchema(**{
             'title': 'title',
             'description': 'description',
             'id': 'id',
@@ -253,7 +252,7 @@ class GetSchemaDocTest(CiTestCase):
             'distros': ['debian', 'rhel'],
             'examples': [
                 'ex1:\n    [don\'t, expand, "this"]', 'ex2: true'],
-        }
+        })
 
     def test_get_meta_doc_returns_restructured_text(self):
         """get_meta_doc returns restructured text for a cloudinit schema."""

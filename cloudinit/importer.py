@@ -9,12 +9,12 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
 import sys
-import typing
 
 # pyver: 3.5 -> 3.8
 # annotations add value for development, but don't break backwards
 # compatibility
 if sys.version_info.minor > 8:
+    import typing
     MetaSchema = typing.TypedDict(
         'MetaSchema', {
             'name': str,
