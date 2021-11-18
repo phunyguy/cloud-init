@@ -236,11 +236,6 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
             ]
         stdout = stdout.getvalue()
         for expected in expected_doc_sections:
-            if expected not in stdout:
-                import pdb; pdb.set_trace()
-                print(expected)
-                print(stdout)
-                assert False
             self.assertIn(expected, stdout)
 
     @mock.patch('cloudinit.cmd.main.main_single')

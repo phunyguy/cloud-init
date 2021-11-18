@@ -12,7 +12,7 @@ import sys
 import types
 from typing import TypedDict, List
 
-# Using alternate syntax for Python3.5 support
+# pyver: 3.5 -> 3.8
 MetaSchema = TypedDict(
     'MetaSchema', {
         'name': str,
@@ -27,7 +27,7 @@ MetaSchema = TypedDict(
 
 class CloudInitModule(types.ModuleType):
     '''Hint to modules that use import_module that all dynamically imported
-    modules should have schema and meta variables
+    modules might have schema and meta variables
     '''
     schema: dict
     meta: MetaSchema
@@ -38,7 +38,7 @@ def import_module(module_name) -> CloudInitModule:
     return sys.modules[module_name]
 
 
-def find_module(base_name, search_paths, required_attrs=None):
+def find_module(base_name: str, search_paths, required_attrs=None) -> tuple:
     '''Finds and imports specified modules'''
     if not required_attrs:
         required_attrs = []

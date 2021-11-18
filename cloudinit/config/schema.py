@@ -14,7 +14,6 @@ import os
 import re
 import sys
 import yaml
-import functools
 from typing import Union
 
 _YAML_MAP = {True: 'true', False: 'false', None: 'null'}
@@ -354,7 +353,6 @@ def _get_property_doc(schema: dict, prefix='    ') -> str:
     properties = []
     for prop_key, prop_config in schema.get('properties', {}).items():
         # Define prop_name and description for SCHEMA_PROPERTY_TMPL
-
         properties.append(SCHEMA_PROPERTY_TMPL.format(
             prefix=prefix,
             prop_name=prop_key,
@@ -423,19 +421,35 @@ def get_meta_doc(meta: MetaSchema, schema: dict) -> str:
     meta_copy['distros'] = ', '.join(meta['distros'])
     # Need an underbar of the same length as the name
     meta_copy['title_underbar'] = re.sub(r'.', '-', meta['name'])
-    return SCHEMA_DOC_TMPL.format(**meta_copy)
+    template = SCHEMA_DOC_TMPL.format(**meta_copy)
+    return template
 
+def get_modules() -> dict:
+    configs_dir = os.path.dirname(os.path.abspath(__file__))
+    return find_modules(configs_dir)
 
-@functools.lru_cache(maxsize=1)
+def load_doc(module: list) -> str:
+    '''Load module docstrings
+
+    Docstrings are generated on module load. Reduce, reuse, recycle.
+    '''
+    docs = ''
+    for (_, mod_name) in get_modules().items():
+        if 'all' in module or mod_name in module:
+            (mod_locs, _) = importer.find_module(
+                mod_name, ['cloudinit.config'], ['schema'])
+            if mod_locs:
+                mod = importer.import_module(mod_locs[0])
+                docs += mod.__doc__ or ""
+    return docs
+
 def get_schema() -> dict:
     """Return jsonschema coalesced from all cc_* cloud-config module."""
     full_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'id': 'cloud-config-schema', 'allOf': []}
 
-    configs_dir = os.path.dirname(os.path.abspath(__file__))
-    potential_handlers = find_modules(configs_dir)
-    for (_, mod_name) in potential_handlers.items():
+    for (_, mod_name) in get_modules().items():
         (mod_locs, _) = importer.find_module(
             mod_name, ['cloudinit.config'], ['schema'])
         if mod_locs:
@@ -444,22 +458,10 @@ def get_schema() -> dict:
     return full_schema
 
 
-@functools.lru_cache(maxsize=1)
 def get_meta() -> dict:
     """Return metadata coalesced from all cc_* cloud-config module."""
-    default_meta: MetaSchema = {
-        'name': '',
-        'id': '',
-        'title': '',
-        'description': '',
-        'frequency': '',
-        'distros': [],
-        'examples': [],
-    }
     full_meta = dict()
-    configs_dir = os.path.dirname(os.path.abspath(__file__))
-    potential_handlers = find_modules(configs_dir)
-    for (_, mod_name) in potential_handlers.items():
+    for (_, mod_name) in get_modules().items():
         mod_locs, _ = importer.find_module(
             mod_name, ['cloudinit.config'], ['meta'])
         if mod_locs:
@@ -513,17 +515,7 @@ def handle_schema_args(name, args):
                 cfg_name = args.config_file
             print("Valid cloud-config:", cfg_name)
     elif args.docs:
-        metas = get_meta()
-        keys = set(metas.keys())
-        keys.add('all')
-        invalid_docs = set(args.docs).difference(keys)
-        if invalid_docs:
-            error('Invalid --docs value {0}. Must be one of: {1}'.format(
-                  list(invalid_docs), ', '.join(metas)))
-        for (key, meta_value) in metas.items():
-            if 'all' in args.docs or key in args.docs:
-                print(get_meta_doc(meta_value, full_schema))
-
+        print(load_doc(args.docs))
 
 def main():
     """Tool to validate schema of a cloud-config file or print schema docs."""
