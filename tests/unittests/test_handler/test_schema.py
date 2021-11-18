@@ -243,7 +243,8 @@ class GetSchemaDocTest(CiTestCase):
 
     def setUp(self):
         super(GetSchemaDocTest, self).setUp()
-        self.meta: MetaSchema = {
+        self.meta: MetaSchema
+        self.meta = {
             'title': 'title',
             'description': 'description',
             'id': 'id',
