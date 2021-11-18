@@ -26,6 +26,7 @@ if sys.version_info.minor > 8:
             'examples': typing.List[str],
             'frequency': str
         })
+
     class CloudInitModule(types.ModuleType):
         '''Hint to modules that use import_module that all dynamically imported
         modules might have schema and meta variables
@@ -35,8 +36,6 @@ if sys.version_info.minor > 8:
 else:
     MetaSchema = dict
     CloudInitModule = types.ModuleType
-
-
 
 
 def import_module(module_name) -> CloudInitModule:

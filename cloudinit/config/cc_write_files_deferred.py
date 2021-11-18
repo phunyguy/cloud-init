@@ -4,13 +4,10 @@
 
 """Defer writing certain files"""
 
-from textwrap import dedent
-
 from cloudinit.config.schema import validate_cloudconfig_schema
 from cloudinit import util
 from cloudinit.config.cc_write_files import (
     schema as write_files_schema, write_files, DEFAULT_DEFER)
-from cloudinit.settings import PER_INSTANCE
 
 # meta is not used in this module, but it remains as code documentation
 #

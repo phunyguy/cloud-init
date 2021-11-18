@@ -74,16 +74,19 @@ def is_schema_byte_string(checker, instance):
             isinstance(instance, (bytes,)))
 
 
-def validate_cloudconfig_schema(config, schema, strict=False):
+def validate_cloudconfig_schema(
+        config: dict,
+        schema: dict,
+        strict=False,
+        strict_metaschema=False):
     """Validate provided config meets the schema definition.
 
     @param config: Dict of cloud configuration settings validated against
-        schema.
+        schema. Ignored if strict_metaschema=True
     @param schema: jsonschema dict describing the supported schema definition
        for the cloud config module (config.cc_*).
     @param strict: Boolean, when True raise SchemaValidationErrors instead of
        logging warnings.
-
     @raises: SchemaValidationError when provided config does not validate
         against the provided schema.
     """
@@ -98,21 +101,35 @@ def validate_cloudconfig_schema(config, schema, strict=False):
     # Allow for bytes to be presented as an acceptable valid value for string
     # type jsonschema attributes in cloud-init's schema.
     # This allows #cloud-config to provide valid yaml "content: !!binary | ..."
+
     if hasattr(Draft4Validator, 'TYPE_CHECKER'):  # jsonschema 3.0+
         type_checker = Draft4Validator.TYPE_CHECKER.redefine(
             'string', is_schema_byte_string)
         cloudinitValidator = extend(Draft4Validator, type_checker=type_checker)
     else:  # jsonschema 2.6 workaround
         types = Draft4Validator.DEFAULT_TYPES
-        # Allow bytes as well as string (and disable a spurious
-        # unsupported-assignment-operation pylint warning which appears because
-        # this code path isn't written against the latest jsonschema).
+        # Allow bytes as well as string (and disable a spurious unsupported
+        # assignment-operation pylint warning which appears because this
+        # code path isn't written against the latest jsonschema).
         types['string'] = (str, bytes)  # pylint: disable=E1137
         cloudinitValidator = create(
             meta_schema=Draft4Validator.META_SCHEMA,
             validators=Draft4Validator.VALIDATORS,
             version="draft4",
             default_types=types)
+
+    if strict_metaschema:
+        mymeta = cloudinitValidator.META_SCHEMA
+
+        # this disables bottom-level keys
+        mymeta['additionalProperties'] = False
+
+        # encoding the base level jsonschema definitions
+        # necessary since (since additionalProperties=False)
+        cloudinitValidator.check_schema(schema)
+
+        cloudinitValidator(schema, format_checker=FormatChecker())
+        return
     validator = cloudinitValidator(schema, format_checker=FormatChecker())
     errors = ()
     for error in sorted(validator.iter_errors(config), key=lambda e: e.path):

@@ -18,7 +18,6 @@ from cloudinit.config.schema import (
     validate_cloudconfig_schema, main, MetaSchema)
 from cloudinit.util import write_file
 from cloudinit.tests.helpers import CiTestCase, mock, skipUnlessJsonSchema
-from cloudinit.config.schema import is_schema_byte_string
 
 
 def get_schemas() -> dict:
@@ -80,7 +79,6 @@ class GetSchemaTest(CiTestCase):
                 'cc_ubuntu_advantage',
                 'cc_ubuntu_drivers',
                 'cc_write_files',
-                'cc_write_files_deferred',
                 'cc_zypper_add_repo',
                 'cc_chef',
                 'cc_install_hotplug',
@@ -360,7 +358,7 @@ class GetSchemaDocTest(CiTestCase):
                                 {'type': 'integer'}]}}}}
         for key in self.meta:
             invalid_meta = copy(self.meta)
-            val = invalid_meta.pop(key)
+            invalid_meta.pop(key)
             with self.assertRaises(KeyError) as context_mgr:
                 get_meta_doc(invalid_meta, schema)
             self.assertIn(key, str(context_mgr.exception))
@@ -549,62 +547,9 @@ class TestStrictMetaschema:
         '''Validate all modules with a stricter metaschema'''
         for (name, value) in get_schemas().items():
             if value:
-                self.validate_cloudconfig_schema_strict(value, name)
+                validate_cloudconfig_schema({}, value, strict_metaschema=True)
             else:
                 logging.warning(
                     "module %s has no schema definition", name)
-
-    def validate_cloudconfig_schema_strict(self, schema: dict, name: str):
-        """Validate schema definition against strict metaschema.
-
-        @param schema: jsonschema dict describing the supported schema
-           definition for the cloud config module (config.cc_*)
-        @param name: for error handling
-
-        This is a modified version of the validation function in schema.py
-        """
-        try:
-            from jsonschema import Draft4Validator, FormatChecker
-            from jsonschema.validators import create, extend
-        except ImportError:
-            logging.debug(
-                'Ignoring schema validation. python-jsonschema is not present')
-            return
-
-        # Allow for bytes to be presented as an acceptable valid value for
-        # string type jsonschema attributes in cloud-init's schema.
-        # This allows #cloud-config to provide valid yaml
-        # "content: !!binary | ..."
-        if hasattr(Draft4Validator, 'TYPE_CHECKER'):  # jsonschema 3.0+
-            type_checker = Draft4Validator.TYPE_CHECKER.redefine(
-                'string', is_schema_byte_string)
-            cloudinitValidator = extend(
-                Draft4Validator, type_checker=type_checker)
-        else:  # jsonschema 2.6 workaround
-            types = Draft4Validator.DEFAULT_TYPES
-            # Allow bytes as well as string (and disable a spurious unsupported
-            # assignment-operation pylint warning which appears because this
-            # code path isn't written against the latest jsonschema).
-            types['string'] = (str, bytes)  # pylint: disable=E1137
-            cloudinitValidator = create(
-                meta_schema=Draft4Validator.META_SCHEMA,
-                validators=Draft4Validator.VALIDATORS,
-                version="draft4",
-                default_types=types)
-
-        mymeta = cloudinitValidator.META_SCHEMA
-
-        # this disables bottom-level keys
-        mymeta['additionalProperties'] = False
-
-        # encoding the base level jsonschema definitions
-        # necessary since (since additionalProperties=False)
-        try:
-            cloudinitValidator.check_schema(schema)
-        except Exception as e:
-            logging.error("exception in module: %s", name)
-            raise e
-
-        cloudinitValidator(schema, format_checker=FormatChecker())
 
 # vi: ts=4 expandtab syntax=python
