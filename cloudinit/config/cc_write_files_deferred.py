@@ -12,32 +12,26 @@ from cloudinit.config.cc_write_files import (
     schema as write_files_schema, write_files, DEFAULT_DEFER)
 from cloudinit.settings import PER_INSTANCE
 
+# meta is not used in this module, but it remains as code documentation
+#
+# id: cc_write_files_deferred'
+# name: 'Write Deferred Files
+# distros: ['all'],
+# frequency: PER_INSTANCE,
+# title:
+#    write certain files, whose creation as been deferred, during
+#    final stage
+# description:
+#    This module is based on `'Write Files' <write-files>`__, and
+#    will handle all files from the write_files list, that have been
+#    marked as deferred and thus are not being processed by the
+#    write-files module.
+#
+#    *Please note that his module is not exposed to the user through
+#    its own dedicated top-level directive.*
 
-schema = util.mergemanydict([
-    write_files_schema
-])
+schema = write_files_schema
 
-# this is not used - should this just be a comment?
-meta = {
-    'id': 'cc_write_files_deferred',
-    'name': 'Write Deferred Files',
-    'examples': [],
-    'distros': ['all'],
-    'frequency': PER_INSTANCE,
-    'title': dedent("""\
-        write certain files, whose creation as been deferred, during
-        final stage
-    """),
-    'description': dedent("""\
-        This module is based on `'Write Files' <write-files>`__, and
-        will handle all files from the write_files list, that have been
-        marked as deferred and thus are not being processed by the
-        write-files module.
-
-        *Please note that his module is not exposed to the user through
-        its own dedicated top-level directive.*
-    """)
-}
 
 # Not exposed, because related modules should document this behaviour
 __doc__ = None

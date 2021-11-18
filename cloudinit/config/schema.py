@@ -398,7 +398,7 @@ def get_meta_doc(meta: MetaSchema, schema: dict) -> str:
     @raise KeyError: If metadata lacks an expected key.
     """
 
-    # Don't throw exceptions for a falsy meta variable.
+    # Some modules set this to falsy value, exit gracefully
     if not meta or not schema:
         return ''
     keys = set(meta.keys())

@@ -221,8 +221,13 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
     def test_wb_devel_schema_subcommand_doc_content(self):
         """Validate that doc content is sane from known examples.
 
-        Ensures that schema is returned
+        Ensure that schema doc is returned
         """
+
+        # Note: patchStdoutAndStderr() is convenient for reducing boilerplate,
+        # but inspecting the code for debugging is not ideal
+        # contextlib.redirect_stdout() provides similar behavior as a context
+        # manager
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
             self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'all'])

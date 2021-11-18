@@ -43,6 +43,7 @@ meta = {
         'resize_rootfs: false  # disable root filesystem resize operation'],
     'frequency': PER_ALWAYS,
 }
+
 schema = {
     'type': 'object',
     'properties': {

@@ -40,6 +40,7 @@ meta = {
     ],
     'frequency': frequency,
 }
+
 schema = {
     'type': 'object',
     'properties': {

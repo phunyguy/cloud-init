@@ -320,7 +320,6 @@ class GetSchemaDocTest(CiTestCase):
             'prop1': {'type': 'array',
                       'items': {'type': 'integer'}}}}
         meta_doc = get_meta_doc(self.meta, schema)
-        print(meta_doc)
         self.assertIn(
             dedent("""
                 **Config schema**:
@@ -364,9 +363,6 @@ class GetSchemaDocTest(CiTestCase):
             val = invalid_meta.pop(key)
             with self.assertRaises(KeyError) as context_mgr:
                 get_meta_doc(invalid_meta, schema)
-                print(invalid_meta)
-                print(val)
-            print(context_mgr.exception)
             self.assertIn(key, str(context_mgr.exception))
 
 
@@ -434,9 +430,9 @@ class AnnotatedCloudconfigFileTest(CiTestCase):
 
 
 class TestMain:
+
     exclusive_combinations = itertools.combinations(
-        ["--system", "--docs all", "--config-file something"],
-        2
+        ["--system", "--docs all", "--config-file something"], 2
     )
 
     @pytest.mark.parametrize("params", exclusive_combinations)
