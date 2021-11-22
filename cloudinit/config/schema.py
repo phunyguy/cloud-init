@@ -14,10 +14,8 @@ import os
 import re
 import sys
 import yaml
-from typing import Union
 
 _YAML_MAP = {True: 'true', False: 'false', None: 'null'}
-SCHEMA_UNDEFINED = b'UNDEFINED'
 CLOUD_CONFIG_HEADER = b'#cloud-config'
 SCHEMA_DOC_TMPL = """
 {name}
@@ -320,12 +318,12 @@ def _schemapath_for_cloudconfig(config, original_content):
     return schema_line_numbers
 
 
-def _get_property_type(property_dict: dict) -> Union[str, bytes]:
+def _get_property_type(property_dict: dict) -> str:
     """Return a string or bytes representing a property type from a given
     jsonschema.
     """
-    property_type = property_dict.get('type', SCHEMA_UNDEFINED)
-    if property_type == SCHEMA_UNDEFINED and property_dict.get('enum'):
+    property_type = property_dict.get('type')
+    if property_type is None and property_dict.get('enum'):
         property_type = [
             str(_YAML_MAP.get(k, k)) for k in property_dict['enum']]
     if isinstance(property_type, list):
@@ -336,10 +334,10 @@ def _get_property_type(property_dict: dict) -> Union[str, bytes]:
     for sub_item in items.get('oneOf', {}):
         if sub_property_type:
             sub_property_type += '/'
-        sub_property_type += '({})'.format(_get_property_type(sub_item))
+        sub_property_type += '(' + _get_property_type(sub_item) + ')'
     if sub_property_type:
         return '{0} of {1}'.format(property_type, sub_property_type)
-    return property_type
+    return property_type or 'UNDEFINED'
 
 
 def _parse_description(description, prefix) -> str:
