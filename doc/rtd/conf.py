@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.abspath('./'))
 sys.path.insert(0, os.path.abspath('.'))
 
 from cloudinit import version
-from cloudinit.config.schema import get_meta_doc
 
 # Supress warnings for docs that aren't used yet
 # unused_docs = [
@@ -66,13 +65,3 @@ html_theme = 'sphinx_rtd_theme'
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 html_logo = 'static/logo.png'
-
-def generate_docstring_from_schema(*args):
-    """Override module docs from schema when present."""
-    (_, what, _, obj, _, lines) = args
-    if what == 'module' and hasattr(obj, "__doc__"):
-        del lines[:]
-        lines.extend(obj.__doc__)
-
-def setup(app):
-    app.connect('autodoc-process-docstring', generate_docstring_from_schema)
