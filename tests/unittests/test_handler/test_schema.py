@@ -15,7 +15,8 @@ from yaml import safe_load
 from cloudinit.config.schema import (
     CLOUD_CONFIG_HEADER, SchemaValidationError, annotated_cloudconfig_file,
     get_meta_doc, get_schema, validate_cloudconfig_file,
-    validate_cloudconfig_schema, main, MetaSchema)
+    validate_cloudconfig_metaschema, validate_cloudconfig_schema, main,
+    MetaSchema)
 from cloudinit.util import write_file
 from cloudinit.tests.helpers import CiTestCase, mock, skipUnlessJsonSchema
 
@@ -543,13 +544,30 @@ class TestStrictMetaschema:
     '''Validate that schemas follow a stricter metaschema definition than
     the default. This disallows arbitrary key/value pairs.
     '''
+    @skipUnlessJsonSchema()
     def test_modules(self):
         '''Validate all modules with a stricter metaschema'''
         for (name, value) in get_schemas().items():
             if value:
-                validate_cloudconfig_schema({}, value, strict_metaschema=True)
+                validate_cloudconfig_metaschema(value)
             else:
                 logging.warning(
                     "module %s has no schema definition", name)
+
+    @skipUnlessJsonSchema()
+    def test_validate_bad_module(self):
+        """item should be 'items' and is therefore interpreted as an additional
+        property
+        """
+        from jsonschema import SchemaError
+        schema = {
+            'type': 'array',
+            'item': {
+                'type': 'object',
+            }
+        }
+        with pytest.raises(SchemaError):
+            validate_cloudconfig_metaschema(schema)
+
 
 # vi: ts=4 expandtab syntax=python
