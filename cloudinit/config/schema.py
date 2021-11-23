@@ -479,7 +479,7 @@ def load_doc(requested_modules: list) -> str:
     invalid_docs = set(requested_modules).difference(set(all_modules))
     if invalid_docs:
         error('Invalid --docs value {}. Must be one of: {}'.format(
-                  list(invalid_docs), ', '.join(all_modules)))
+            list(invalid_docs), ', '.join(all_modules)))
     for mod_name in all_modules:
         if 'all' in requested_modules or mod_name in requested_modules:
             (mod_locs, _) = importer.find_module(

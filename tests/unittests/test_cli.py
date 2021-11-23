@@ -256,7 +256,8 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
         # manager
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
-            self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'cc_runcmd'])
+            self._call_main(
+                ['cloud-init', 'devel', 'schema', '--docs', 'cc_runcmd'])
             expected_doc_sections = [
                 'Runcmd\n------\n**Summary:** Run arbitrary commands'
             ]
@@ -272,7 +273,9 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
 
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
-            self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'cc_runcmd', 'cc_resizefs'])
+            self._call_main(
+                ['cloud-init', 'devel', 'schema', '--docs', 'cc_runcmd',
+                    'cc_resizefs'])
             expected_doc_sections = [
                 'Runcmd\n------\n**Summary:** Run arbitrary commands',
                 'Resizefs\n--------\n**Summary:** Resize filesystem'
@@ -293,9 +296,10 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
         # manager
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
-            self._call_main(['cloud-init', 'devel', 'schema', '--docs', 'garbage_value'])
+            self._call_main([
+                'cloud-init', 'devel', 'schema', '--docs', 'garbage_value'])
             expected_doc_sections = [
-                    'Invalid --docs value'
+                'Invalid --docs value'
             ]
         stderr = stderr.getvalue()
         for expected in expected_doc_sections:
