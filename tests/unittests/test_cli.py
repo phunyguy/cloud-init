@@ -219,7 +219,7 @@ class TestCLI(test_helpers.FilesystemMockingTestCase):
             self.stderr.getvalue())
 
     def test_wb_devel_schema_subcommand_doc_content(self):
-        """Validate that doc content is sane from known examples.
+        """Validate that doc content has correct values from known examples.
 
         Ensure that schema doc is returned
         """
