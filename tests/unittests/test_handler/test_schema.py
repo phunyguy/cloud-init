@@ -154,6 +154,34 @@ class ValidateCloudConfigSchemaTest(CiTestCase):
             "Cloud config schema errors: p1: '-1' is not a 'email'",
             str(context_mgr.exception))
 
+    @skipUnlessJsonSchema()
+    def test_validateconfig_schema_honors_formats_strict_metaschema(self):
+        """With strict True and strict_metascheam True, ensure errors on format
+        """
+        schema = {
+            'properties': {'p1': {'type': 'string', 'format': 'email'}}}
+        with self.assertRaises(SchemaValidationError) as context_mgr:
+            validate_cloudconfig_schema(
+                {'p1': '-1'}, schema, strict=True, strict_metaschema=True)
+        self.assertEqual(
+            "Cloud config schema errors: p1: '-1' is not a 'email'",
+            str(context_mgr.exception))
+
+    @skipUnlessJsonSchema()
+    def test_validateconfig_strict_metaschema_do_not_raise_exception(self):
+        """With strict_metaschema=True, do not raise exceptions.
+
+        This flag is currently unused, but is intended for run-time validation.
+        This should warn, but not raise.
+        """
+        schema = {
+            'properties': {'p1': {'types': 'string', 'format': 'email'}}}
+        validate_cloudconfig_schema(
+            {'p1': '-1'}, schema, strict_metaschema=True)
+        assert (
+            'Meta-schema validation failed, attempting to validate config'
+            in self.logs.getvalue())
+
 
 class TestCloudConfigExamples:
     schema = get_schemas()
@@ -583,8 +611,10 @@ class TestStrictMetaschema:
 
     @skipUnlessJsonSchema()
     def test_validate_bad_module(self):
-        """item should be 'items' and is therefore interpreted as an additional
-        property
+        """Throw exception by default, don't throw if throw=False
+
+        item should be 'items' and is therefore interpreted as an additional
+        property which is invalid with a strict metaschema
         """
         from jsonschema import SchemaError
         schema = {
@@ -595,6 +625,8 @@ class TestStrictMetaschema:
         }
         with pytest.raises(SchemaError):
             validate_cloudconfig_metaschema(schema)
+
+        validate_cloudconfig_metaschema(schema, throw=False)
 
 
 # vi: ts=4 expandtab syntax=python

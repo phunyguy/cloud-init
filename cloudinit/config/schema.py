@@ -80,7 +80,6 @@ def get_jsonschema_validator():
     @returns: Tuple: (jsonschema.Validator, FormatChecker)
     @raises: ImportError when jsonschema is not present
     """
-    import jsonschema
     from jsonschema import Draft4Validator, FormatChecker
     from jsonschema.validators import create, extend
 
@@ -103,26 +102,36 @@ def get_jsonschema_validator():
             validators=Draft4Validator.VALIDATORS,
             version="draft4",
             default_types=types)
-    return (cloudinitValidator, FormatChecker)
+    return (cloudinitValidator, FormatChecker, None)
 
 
 def validate_cloudconfig_metaschema(
-        schema: dict):
+        schema: dict,
+        throw=True):
     """Validate provided schema meets the metaschema definition. Return strict
     Validator and FormatChecker for use in validation
+    @param schema: schema to validate
+    @param throw: Sometimes the validator and checker are required, even if
+        the schema is invalid. Toggle for whether to raise SchemaErrors
 
-    @returns: Tuple(jsonschema.Validator, jsonschema.FormatChecker)
+    @returns: Tuple(jsonschema.Validator, jsonschema.FormatChecker, err)
 
     @raises: ImportError when jsonschema is not present
     @raises: jsonschema.exceptions.SchemaError if the schema is invalid
     """
 
-    (cloudinitValidator, FormatChecker) = get_jsonschema_validator()
+    from jsonschema.exceptions import SchemaError
+    (cloudinitValidator, FormatChecker, _) = get_jsonschema_validator()
+    try:
 
-    # disable bottom-level keys
-    cloudinitValidator.META_SCHEMA['additionalProperties'] = False
-    cloudinitValidator.check_schema(schema)
-    return (cloudinitValidator, FormatChecker)
+        # disable bottom-level keys
+        cloudinitValidator.META_SCHEMA['additionalProperties'] = False
+        cloudinitValidator.check_schema(schema)
+    except SchemaError as e:
+        if throw:
+            raise e
+        return (cloudinitValidator, FormatChecker, e)
+    return (cloudinitValidator, FormatChecker, None)
 
 
 def validate_cloudconfig_schema(
@@ -145,19 +154,19 @@ def validate_cloudconfig_schema(
         against the provided schema.
     """
     try:
-        from jsonschema.exceptions import SchemaError
-        (cloudinitValidator, FormatChecker) = (
+        (cloudinitValidator, FormatChecker, err) = (
             get_jsonschema_validator()
             if not strict_metaschema
-            else validate_cloudconfig_metaschema(schema)
+            else validate_cloudconfig_metaschema(schema, throw=False)
         )
     except ImportError:
         logging.debug(
             'Ignoring schema validation. jsonschema is not present')
         return
-    except SchemaError as s:
-        logging.warning('Invalid meta-schema validation: %', s)
-        return
+    if err:
+        logging.warning(
+            'Meta-schema validation failed, attempting to validate config'
+            ' anyway: %s', err)
     validator = cloudinitValidator(schema, format_checker=FormatChecker())
     errors = ()
     for error in sorted(validator.iter_errors(config), key=lambda e: e.path):
