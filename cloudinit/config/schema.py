@@ -34,7 +34,7 @@ SCHEMA_DOC_TMPL = """
 {property_doc}
 {examples}
 """
-SCHEMA_PROPERTY_TMPL = '{prefix}**{prop_name}:** ({prop_type})'
+SCHEMA_PROPERTY_TMPL = '{prefix}**{prop_name}:** ({prop_type}) {description}'
 SCHEMA_LIST_ITEM_TMPL = (
     '{prefix}Each item in **{prop_name}** list supports the following keys:')
 SCHEMA_EXAMPLES_HEADER = '\n**Examples**::\n\n'
@@ -383,9 +383,13 @@ def _get_property_doc(schema: dict, prefix='    ') -> str:
     properties = []
     for prop_key, prop_config in schema.get('properties', {}).items():
         # Define prop_name and description for SCHEMA_PROPERTY_TMPL
+        description = prop_config.get('description', '')
+
+        # Define prop_name and description for SCHEMA_PROPERTY_TMPL
         properties.append(SCHEMA_PROPERTY_TMPL.format(
             prefix=prefix,
             prop_name=prop_key,
+            description=_parse_description(description, prefix),
             prop_type=_get_property_type(prop_config)))
         items = prop_config.get('items')
         if items:
