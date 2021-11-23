@@ -464,14 +464,24 @@ def get_modules() -> dict:
     return find_modules(configs_dir)
 
 
-def load_doc(module: list) -> str:
+def error(message):
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+def load_doc(requested_modules: list) -> str:
     '''Load module docstrings
 
     Docstrings are generated on module load. Reduce, reuse, recycle.
     '''
     docs = ''
-    for (_, mod_name) in get_modules().items():
-        if 'all' in module or mod_name in module:
+    all_modules = list(get_modules().values()) + ['all']
+    invalid_docs = set(requested_modules).difference(set(all_modules))
+    if invalid_docs:
+        error('Invalid --docs value {}. Must be one of: {}'.format(
+                  list(invalid_docs), ', '.join(all_modules)))
+    for mod_name in all_modules:
+        if 'all' in requested_modules or mod_name in requested_modules:
             (mod_locs, _) = importer.find_module(
                 mod_name, ['cloudinit.config'], ['schema'])
             if mod_locs:
@@ -505,11 +515,6 @@ def get_meta() -> dict:
             mod = importer.import_module(mod_locs[0])
             full_meta[mod.meta['id']] = mod.meta
     return full_meta
-
-
-def error(message):
-    print(message, file=sys.stderr)
-    sys.exit(1)
 
 
 def get_parser(parser=None):
