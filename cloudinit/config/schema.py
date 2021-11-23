@@ -349,7 +349,7 @@ def _schemapath_for_cloudconfig(config, original_content):
 
 
 def _get_property_type(property_dict: dict) -> str:
-    """Return a string or bytes representing a property type from a given
+    """Return a string representing a property type from a given
     jsonschema.
     """
     property_type = property_dict.get('type')

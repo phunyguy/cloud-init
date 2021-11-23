@@ -65,5 +65,4 @@ def find_module(base_name: str, search_paths, required_attrs=None) -> tuple:
             found_paths.append(full_path)
     return (found_paths, lookup_paths)
 
-
 # vi: ts=4 expandtab
