@@ -130,7 +130,7 @@ class ValidateCloudConfigSchemaTest(CiTestCase):
         with mock.patch.dict('sys.modules', **{'jsonschema': ImportError()}):
             validate_cloudconfig_schema({'p1': -1}, schema, strict=True)
         self.assertIn(
-            'Ignoring schema validation. python-jsonschema is not present',
+            'Ignoring schema validation. jsonschema is not present',
             self.logs.getvalue())
 
     @skipUnlessJsonSchema()
