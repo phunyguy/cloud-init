@@ -244,6 +244,10 @@ class GetSchemaDocTest(CiTestCase):
 
     def setUp(self):
         super(GetSchemaDocTest, self).setUp()
+        self.required_schema = {
+            'title': 'title', 'description': 'description', 'id': 'id',
+            'name': 'name', 'frequency': 'frequency',
+            'distros': ['debian', 'rhel']}
         self.meta = MetaSchema({
             'title': 'title',
             'description': 'description',
@@ -257,10 +261,13 @@ class GetSchemaDocTest(CiTestCase):
 
     def test_get_meta_doc_returns_restructured_text(self):
         """get_meta_doc returns restructured text for a cloudinit schema."""
-        schema = {'properties': {
-            'prop1': {'type': 'array',
-                      'items': {'type': 'integer'}}}}
-        doc = get_meta_doc(self.meta, schema)
+        full_schema = copy(self.required_schema)
+        full_schema.update(
+            {'properties': {
+                'prop1': {'type': 'array', 'description': 'prop-description',
+                          'items': {'type': 'integer'}}}})
+
+        doc = get_meta_doc(self.meta, full_schema)
         self.assertEqual(
             dedent("""
                 name
@@ -276,7 +283,7 @@ class GetSchemaDocTest(CiTestCase):
                 **Supported distros:** debian, rhel
 
                 **Config schema**:
-                    **prop1:** (array of integer)
+                    **prop1:** (array of integer) prop-description
 
                 **Examples**::
 
@@ -313,16 +320,18 @@ class GetSchemaDocTest(CiTestCase):
             '**prop1:** (array of (string)/(integer))',
             get_meta_doc(self.meta, schema))
 
-    def test_get_meta_doc_handles_string_examples(self):
-        """get_meta_doc properly indented examples as a list of strings."""
-        schema = {'properties': {
-            'prop1': {'type': 'array',
-                      'items': {'type': 'integer'}}}}
-        meta_doc = get_meta_doc(self.meta, schema)
+    def test_get_schema_doc_handles_string_examples(self):
+        """get_schema_doc properly indented examples as a list of strings."""
+        full_schema = copy(self.required_schema)
+        full_schema.update(
+            {'examples': ['ex1:\n    [don\'t, expand, "this"]', 'ex2: true'],
+             'properties': {
+                'prop1': {'type': 'array', 'description': 'prop-description',
+                          'items': {'type': 'integer'}}}})
         self.assertIn(
             dedent("""
                 **Config schema**:
-                    **prop1:** (array of integer)
+                    **prop1:** (array of integer) prop-description
 
                 **Examples**::
 
@@ -331,7 +340,7 @@ class GetSchemaDocTest(CiTestCase):
                     # --- Example2 ---
                     ex2: true
             """),
-            meta_doc)
+            get_meta_doc(self.meta, full_schema))
 
     def test_get_meta_doc_properly_parse_description(self):
         """get_meta_doc description properly formatted"""
@@ -339,6 +348,17 @@ class GetSchemaDocTest(CiTestCase):
             'properties': {
                 'p1': {
                     'type': 'string',
+                    'description': dedent("""\
+                        This item
+                        has the
+                        following options:
+
+                          - option1
+                          - option2
+                          - option3
+
+                        The default value is
+                        option1""")
                 }
             }
         }
@@ -346,7 +366,14 @@ class GetSchemaDocTest(CiTestCase):
         self.assertIn(
             dedent("""
                 **Config schema**:
-                    **p1:** (string)
+                    **p1:** (string) This item has the following options:
+
+                            - option1
+                            - option2
+                            - option3
+
+                    The default value is option1
+
             """),
             get_meta_doc(self.meta, schema))
 
