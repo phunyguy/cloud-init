@@ -68,7 +68,7 @@ ways in which this may catch you out:
 
 * Support for using ``yield`` in ``pytest.fixture`` functions was only
   introduced in `pytest 3.0`_.  Such functions must instead use the
-  ``pytest.yield_fixture`` decorator.
+  ``pytest.fixture`` decorator.
 
 * Only the following built-in fixtures are available [#fixture-list]_:
 

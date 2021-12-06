@@ -16,7 +16,7 @@ def setup_and_mount_lxd_disk(instance: LXDInstance):
         instance.name, DISK_PATH).split())
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def create_disk():
     # 640k should be enough for anybody
     subp('dd if=/dev/zero of={} bs=1k count=640'.format(DISK_PATH).split())
