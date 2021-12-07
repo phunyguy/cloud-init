@@ -1,6 +1,5 @@
 """Tests for tools/render-cloudcfg"""
 
-import os
 import sys
 
 import pytest

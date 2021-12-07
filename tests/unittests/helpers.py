@@ -467,7 +467,8 @@ def resourceLocation(subname=None):
     path = CloudinitDir('tests/data')
     if not subname:
         return path
-    return os.path.join(path, subname)
+    # casting to str only required for Python 3.5
+    return os.path.join(str(path), subname)
 
 
 def readResource(name, mode='r'):
