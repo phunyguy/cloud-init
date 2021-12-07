@@ -67,21 +67,4 @@ class TestCloudinitDir:
             self._get_top_level_dir_alt_implementation(),
         )
 
-    def test_supported_ops(self):
-        """Ensure expected ops don't fail
-
-        __add__, __radd__, __str__, encode
-        """
-        original = test_helpers.get_top_level_dir()
-        c1 = deepcopy(original)
-        c2 = deepcopy(original)
-        c3 = deepcopy(original)
-        c4 = deepcopy(original)
-        assert type(str(c1)) == str
-        assert c2 + "right" != "right" + c3
-        assert c4.encode("utf-8")
-        with pytest.raises(ValueError):
-            c4.encode("utf-512")
-
-
 # vi: ts=4 expandtab
