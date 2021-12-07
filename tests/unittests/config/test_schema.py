@@ -620,7 +620,7 @@ class TestMain:
 
 
 def _get_meta_doc_examples():
-    examples_dir = CloudinitDir('doc/examples')
+    examples_dir = Path(CloudinitDir('doc/examples'))
     assert examples_dir.is_dir()
 
     all_text_files = (f for f in examples_dir.glob('cloud-config*.txt')

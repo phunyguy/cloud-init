@@ -537,8 +537,9 @@ def get_top_level_dir():
     return _CloudinitPath(cloudinit.__file__).parent.parent
 
 
-def CloudinitDir(sub_path: str):
-    return get_top_level_dir() / sub_path
+def CloudinitDir(sub_path: str) ->str:
+    """Python 3.5 is gone we can remove the cast to str which allows us to return a Path() object which is more flexible (with the above cast)"""
+    return str(get_top_level_dir() / sub_path)
 
 
 # vi: ts=4 expandtab
