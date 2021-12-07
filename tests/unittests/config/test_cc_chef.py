@@ -20,7 +20,8 @@ from tests.unittests.util import get_cloud
 
 LOG = logging.getLogger(__name__)
 
-CLIENT_TEMPL = CloudinitDir("templates/chef_client.rb.tmpl")
+# cast to str required for Python 3.5
+CLIENT_TEMPL = str(CloudinitDir("templates/chef_client.rb.tmpl"))
 
 # This is adjusted to use http because using with https causes issue
 # in some openssl/httpretty combinations.
@@ -118,8 +119,7 @@ class TestChef(FilesystemMockingTestCase):
         for d in cc_chef.CHEF_DIRS:
             self.assertFalse(os.path.isdir(d))
 
-    # cast to str for Python 3.5
-    @skipIf(not os.path.isfile(str(CLIENT_TEMPL)),
+    @skipIf(not os.path.isfile(CLIENT_TEMPL),
             CLIENT_TEMPL + " is not available")
     def test_basic_config(self):
         """
