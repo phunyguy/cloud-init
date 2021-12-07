@@ -20,8 +20,7 @@ from tests.unittests.util import get_cloud
 
 LOG = logging.getLogger(__name__)
 
-# cast to str required for Python 3.5
-CLIENT_TEMPL = str(CloudinitDir("templates/chef_client.rb.tmpl"))
+CLIENT_TEMPL = CloudinitDir("templates/chef_client.rb.tmpl")
 
 # This is adjusted to use http because using with https causes issue
 # in some openssl/httpretty combinations.

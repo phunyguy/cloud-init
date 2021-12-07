@@ -467,8 +467,7 @@ def resourceLocation(subname=None):
     path = CloudinitDir('tests/data')
     if not subname:
         return path
-    # casting to str only required for Python 3.5
-    return os.path.join(str(path), subname)
+    return os.path.join(path, subname)
 
 
 def readResource(name, mode='r'):
@@ -517,7 +516,7 @@ def get_top_level_dir():
 
 
 def CloudinitDir(sub_path: str) -> str:
-    """"""
+    """Return path within cloudinit project directory"""
     return str(get_top_level_dir() / sub_path)
 
 

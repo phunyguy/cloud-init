@@ -5,9 +5,7 @@
 import os
 from os.path import abspath
 from pathlib import Path
-from copy import deepcopy
 
-import pytest
 from tests.unittests import helpers as test_helpers
 
 from cloudinit import sources
