@@ -118,7 +118,8 @@ class TestChef(FilesystemMockingTestCase):
         for d in cc_chef.CHEF_DIRS:
             self.assertFalse(os.path.isdir(d))
 
-    @skipIf(not os.path.isfile(CLIENT_TEMPL),
+    # cast to str for Python 3.5
+    @skipIf(not os.path.isfile(str(CLIENT_TEMPL)),
             CLIENT_TEMPL + " is not available")
     def test_basic_config(self):
         """
