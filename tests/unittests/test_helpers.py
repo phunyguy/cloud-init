@@ -41,7 +41,7 @@ class TestPaths(test_helpers.ResourceUsingTestCase):
 
 def cmp_abspath(*args):
     """Ensure arguments have the same abspath"""
-    return 1 == len(set(map(abspath, args)))
+    return 1 == len(set(map(abspath, map(str, args))))
 
 
 class TestCloudinitDir:
