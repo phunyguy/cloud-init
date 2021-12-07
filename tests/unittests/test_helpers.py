@@ -51,7 +51,7 @@ class TestCloudinitDir:
         """Recursively walk until .git/ is found, return parent dir"""
 
         def get_git_dir(path):
-            if os.path.isdir(Path(path, ".git")):
+            if os.path.isdir(str(Path(path, ".git"))):
                 return Path(path, ".git").parent
             # found root dir, not going to find a .git/
             elif cmp_abspath('/', path):
