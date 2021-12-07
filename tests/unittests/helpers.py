@@ -508,27 +508,6 @@ if not hasattr(mock.Mock, 'assert_not_called'):
     mock.Mock.assert_not_called = __mock_assert_not_called
 
 
-# class _CloudinitPath(PosixPath):
-#    """Add concatenation and encoding to PosixPath"""
-#
-#    def __add__(self, other):
-#        if not isinstance(other, str):
-#            raise ValueError("cannot concat type {}".format(type(other)))
-#        return "{}{}".format(self, other)
-#
-#    def __radd__(self, other):
-#        if not isinstance(other, str):
-#            raise ValueError("cannot concat type {}".format(type(other)))
-#        return "{}{}".format(other, self)
-#
-#    def encode(self, *args):
-#        if args and args[0] == 'utf-8' and len(args) == 1:
-#            return str(self)
-#        raise ValueError(
-#            "{}: only utf-8 encoding allowed {}".format(self.__class__, args)
-#        )
-
-
 def get_top_level_dir():
     """Return the path to the top cloudinit project directory
 
