@@ -18,7 +18,7 @@ import crypt
 import httpretty
 import json
 import os
-import requests
+import httpx as requests
 import stat
 import xml.etree.ElementTree as ET
 import yaml

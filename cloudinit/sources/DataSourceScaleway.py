@@ -10,20 +10,11 @@ import os
 import socket
 import time
 
-import requests
+import httpx
+import httpcore
 
-# pylint fails to import the two modules below.
-# These are imported via requests.packages rather than urllib3 because:
-#  a.) the provider of the requests package should ensure that urllib3
-#      contained in it is consistent/correct.
-#  b.) cloud-init does not specifically have a dependency on urllib3
-#
-# For future reference, see:
-#   https://github.com/kennethreitz/requests/pull/2375
-#   https://github.com/requests/requests/issues/4104
-# pylint: disable=E0401
-from requests.packages.urllib3.connection import HTTPConnection
-from requests.packages.urllib3.poolmanager import PoolManager
+from urllib3.connection import HTTPConnection
+from urllib3.poolmanager import PoolManager
 
 from cloudinit import dmi
 from cloudinit import log as logging
@@ -71,7 +62,7 @@ def on_scaleway():
     return False
 
 
-class SourceAddressAdapter(requests.adapters.HTTPAdapter):
+class SourceAddressAdapter(httpcore.ConnectionPool):
     """
     Adapter for requests to choose the local address to bind to.
     """
@@ -129,6 +120,11 @@ def query_data_api_once(api_address, timeout, requests_session):
         raise
 
 
+def get_address(local_address='0.0.0.0'):
+    return httpx.HTTPTransport(
+        local_address=local_address)
+
+
 def query_data_api(api_type, api_address, retries, timeout):
     """Get user or vendor data.
 
@@ -146,11 +142,16 @@ def query_data_api(api_type, api_address, retries, timeout):
                 'Trying to get %s data (bind on port %d)...',
                 api_type, port
             )
-            requests_session = requests.Session()
-            requests_session.mount(
-                'http://',
-                SourceAddressAdapter(source_address=('0.0.0.0', port))
-            )
+#            socket_options = HTTPConnection.default_socket_options + [
+#                (socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+#            ]
+            # todo: figure out how to use port
+            mounts = {
+                'http://':
+                get_address()
+            }
+            requests_session = httpx.Client(
+                mounts=mounts, follow_redirects=True)
             data = query_data_api_once(
                 api_address,
                 timeout=timeout,

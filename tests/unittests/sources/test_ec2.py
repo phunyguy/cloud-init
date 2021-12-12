@@ -3,7 +3,7 @@
 import copy
 import httpretty
 import json
-import requests
+import httpx as requests
 from unittest import mock
 
 from cloudinit import helpers

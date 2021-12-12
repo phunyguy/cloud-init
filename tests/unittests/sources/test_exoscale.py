@@ -15,7 +15,7 @@ from cloudinit import util
 
 import httpretty
 import os
-import requests
+import httpx as requests
 
 
 TEST_PASSWORD_URL = "{}:{}/{}/".format(METADATA_URL,

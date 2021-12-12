@@ -9,7 +9,7 @@ from cloudinit import version
 
 import httpretty
 import logging
-import requests
+import httpx as requests
 
 
 try:

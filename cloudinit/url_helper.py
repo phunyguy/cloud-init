@@ -19,7 +19,7 @@ from http.client import NOT_FOUND
 from itertools import count
 from urllib.parse import urlparse, urlunparse, quote
 
-import requests
+import httpx as requests
 from requests import exceptions
 
 from cloudinit import log as logging
@@ -192,7 +192,7 @@ def _get_ssl_args(url, ssl_details):
 
 def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
             headers=None, headers_cb=None, headers_redact=None,
-            ssl_details=None, check_status=True, allow_redirects=True,
+            ssl_details=None, check_status=True, follow_redirects=None,
             exception_cb=None, session=None, infinite=False, log_req_resp=True,
             request_method=None):
     """Wrapper around requests.Session to read the url and retry if necessary
@@ -214,8 +214,8 @@ def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
         cert_file keys for use on in ssl connections.
     :param check_status: Optional boolean set True to raise when HTTPError
         occurs. Default: True.
-    :param allow_redirects: Optional boolean passed straight to Session.request
-        as 'allow_redirects'. Default: True.
+    :param follow_redirects: Optional boolean passed straight to Httpx.Client()
+        as 'follow_redirects'. Default: None.
     :param exception_cb: Optional callable which accepts the params
         msg and exception and returns a boolean True if retries are permitted.
     :param session: Optional exiting requests.Session instance to reuse.
@@ -230,7 +230,7 @@ def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
         'url': url,
     }
     req_args.update(_get_ssl_args(url, ssl_details))
-    req_args['allow_redirects'] = allow_redirects
+    req_args['follow_redirects'] = follow_redirects
     if not request_method:
         request_method = 'POST' if data else 'GET'
     req_args['method'] = request_method
@@ -297,7 +297,7 @@ def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
                           filtered_req_args)
 
             if session is None:
-                session = requests.Session()
+                session = requests.Client()
 
             with session as sess:
                 r = sess.request(**req_args)

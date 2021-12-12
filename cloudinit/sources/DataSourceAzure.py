@@ -16,7 +16,7 @@ from time import sleep
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 from enum import Enum
-import requests
+import httpx as requests
 
 from cloudinit import dmi
 from cloudinit import log as logging

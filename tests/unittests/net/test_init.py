@@ -9,7 +9,7 @@ from unittest import mock
 
 import httpretty
 import pytest
-import requests
+import httpx as requests
 
 import cloudinit.net as net
 from cloudinit import safeyaml as yaml

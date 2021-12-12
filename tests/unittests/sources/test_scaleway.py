@@ -3,7 +3,7 @@
 import json
 
 import httpretty
-import requests
+import httpx
 
 from cloudinit import helpers
 from cloudinit import settings
@@ -160,8 +160,22 @@ def get_source_address_adapter(*args, **kwargs):
     This function removes the bind on a privileged address, since anyway the
     HTTP call is mocked by httpretty.
     """
+    import requests
     kwargs.pop('source_address')
     return requests.adapters.HTTPAdapter(*args, **kwargs)
+
+
+def get_local_address_transport(*_args, **_kwargs):
+    """
+    Scaleway user/vendor data API requires to be called with a privileged port.
+
+    If the unittests are run as non-root, the user doesn't have the permission
+    to bind on ports below 1024.
+
+    This function removes the bind on a privileged address, since anyway the
+    HTTP call is mocked by httpretty.
+    """
+    return httpx.HTTPTransport()
 
 
 class TestDataSourceScaleway(HttprettyTestCase):
@@ -187,8 +201,8 @@ class TestDataSourceScaleway(HttprettyTestCase):
             '_m_find_fallback_nic', return_value='scalewaynic0')
 
     @mock.patch('cloudinit.sources.DataSourceScaleway.EphemeralDHCPv4')
-    @mock.patch('cloudinit.sources.DataSourceScaleway.SourceAddressAdapter',
-                get_source_address_adapter)
+    @mock.patch('cloudinit.sources.DataSourceScaleway.get_address',
+                get_local_address_transport)
     @mock.patch('cloudinit.util.get_cmdline')
     @mock.patch('time.sleep', return_value=None)
     def test_metadata_ok(self, sleep, m_get_cmdline, dhcpv4):
@@ -288,8 +302,8 @@ class TestDataSourceScaleway(HttprettyTestCase):
         ].sort())
 
     @mock.patch('cloudinit.sources.DataSourceScaleway.EphemeralDHCPv4')
-    @mock.patch('cloudinit.sources.DataSourceScaleway.SourceAddressAdapter',
-                get_source_address_adapter)
+    @mock.patch('cloudinit.sources.DataSourceScaleway.get_address',
+                get_local_address_transport)
     @mock.patch('cloudinit.util.get_cmdline')
     @mock.patch('time.sleep', return_value=None)
     def test_metadata_404(self, sleep, m_get_cmdline, dhcpv4):
@@ -312,8 +326,8 @@ class TestDataSourceScaleway(HttprettyTestCase):
         self.assertEqual(sleep.call_count, 0)
 
     @mock.patch('cloudinit.sources.DataSourceScaleway.EphemeralDHCPv4')
-    @mock.patch('cloudinit.sources.DataSourceScaleway.SourceAddressAdapter',
-                get_source_address_adapter)
+    @mock.patch('cloudinit.sources.DataSourceScaleway.get_address',
+                get_local_address_transport)
     @mock.patch('cloudinit.util.get_cmdline')
     @mock.patch('time.sleep', return_value=None)
     def test_metadata_rate_limit(self, sleep, m_get_cmdline, dhcpv4):

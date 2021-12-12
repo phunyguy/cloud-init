@@ -339,7 +339,7 @@ class TestReadMetadata:
             ),
         )
     )
-    @mock.patch.object(lxd.requests.Session, 'get')
+    @mock.patch.object(lxd.requests.Client, 'get')
     def test_read_metadata_handles_unexpected_content_or_http_status(
         self, session_get, url_responses, expected, logs, caplog
     ):
