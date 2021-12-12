@@ -1,16 +1,18 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
-from cloudinit.url_helper import (
-    NOT_FOUND, UrlError, REDACTED, oauth_headers, read_file_or_url,
-    retry_on_url_exc)
-from tests.unittests.helpers import CiTestCase, mock, skipIf
-from cloudinit import util
-from cloudinit import version
 
+import time
 import httpretty
 import logging
 import requests
+import pytest
 
+from cloudinit import util
+from cloudinit import version
+from cloudinit.url_helper import (
+    NOT_FOUND, UrlError, REDACTED, oauth_headers, read_file_or_url,
+    retry_on_url_exc, dual_stack)
+from tests.unittests.helpers import CiTestCase, mock, skipIf
 
 try:
     import oauthlib
@@ -174,5 +176,68 @@ class TestRetryOnUrlExc(CiTestCase):
         """When exception is a requests.Timout return True."""
         myerror = UrlError(cause=requests.Timeout('something timed out'))
         self.assertTrue(retry_on_url_exc(msg='', exc=myerror))
+
+
+def _raise(a):
+    raise a
+
+
+def _closure_mock_make_second_go_first(closure, addr, delay=None):
+    """Unmocked sleep should be canceled before finishing"""
+    if addr == 'one':
+        time.sleep(5)
+        assert False
+
+    return closure(addr)
+
+
+class TestDualStack:
+
+    @pytest.mark.parametrize(
+        "first_addr,second_addr,closure,stagger_delay,max_timeout,expected",
+        [
+            ("one", "two", lambda x:x, 5, 1, "one"),
+        ])
+    def test_returns(
+            self,
+            first_addr,
+            second_addr,
+            closure,
+            stagger_delay,
+            max_timeout,
+            expected):
+        assert expected == dual_stack(
+            first_addr,
+            second_addr,
+            closure,
+            stagger_delay,
+            max_timeout)
+
+    @pytest.mark.parametrize(
+        "first_addr,second_addr,closure,stagger_delay,max_timeout,expected",
+        [
+            (ValueError("one"), "two", _raise, 5, 1, ValueError),
+        ])
+    def test_raises(
+            self,
+            first_addr,
+            second_addr,
+            closure,
+            stagger_delay,
+            max_timeout,
+            expected):
+        """Assert that exception in closure bubbles up"""
+        with pytest.raises(expected):
+            dual_stack(
+                first_addr,
+                second_addr,
+                closure,
+                stagger_delay,
+                max_timeout)
+
+    @mock.patch("cloudinit.url_helper._run_closure",
+                _closure_mock_make_second_go_first)
+    def test_second_completes_first(self):
+        assert "two" == dual_stack("one", "two", lambda x: x, 0, 1)
 
 # vi: ts=4 expandtab
