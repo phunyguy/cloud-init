@@ -192,7 +192,7 @@ def _get_ssl_args(url, ssl_details):
 
 
 def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
-            headers=None, headers_cb=None, headers_redact=None,
+            headers_cb=None, headers_redact=None,
             ssl_details=None, check_status=True, allow_redirects=True,
             exception_cb=None, session=None, infinite=False, log_req_resp=True,
             request_method=None):
@@ -226,6 +226,7 @@ def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
         Typically GET, or POST. Default: POST if data is provided, GET
         otherwise.
     """
+    headers=headers_cb(url) if headers_cb else {},
     url = _cleanurl(url)
     req_args = {
         'url': url,
@@ -342,91 +343,61 @@ def readurl(url, data=None, timeout=None, retries=0, sec_between=1,
     return None  # Should throw before this...
 
 
-def _run_closure(closure, addr, delay=None):
-    """Execute closure with optional delay
-    """
-    if delay:
-        time.sleep(delay)
-    return closure(addr)
-
-
 def dual_stack(
-        first_addr,
-        second_addr,
         closure: Callable[..., Any],
+        *addresses: str,
         stagger_delay: float = 0.150,
-        max_timeout: int = 10,
-        first_addr_is_priority: bool = True) -> Iterator[
+        max_timeout: int = 10) -> Iterator[
             Tuple[Any, Union[BaseException, None]]]:
-    """attempt connecting to multiple addresses asynchronously, inspired by
-    RFC 6555, "happy eyeballs"
+    """attempt connecting to multiple addresses asynchronously
 
     Run blocking closure against two different addresses staggered with a
     delay. The first call to return is yielded from this function. Successive
     calls will return subsequent returned values. This allows for checking
     returned codes/values and checking the next value returned if needed.
     """
+    def _run_closure(closure, addr, delay=None):
+        """Execute closure with optional delay
+        """
+        if delay:
+            time.sleep(delay)
+        return closure(addr)
+
     from concurrent.futures import (
         ThreadPoolExecutor, as_completed, TimeoutError)
     return_exception = None
     return_result = None
 
-    def cancel_futures(futures):
-        # Cancel other future
-        for future in futures:
-            if not future.done():
-                future.cancel()
-                print("Canceled {}".format(str(future)))
-
     executor = ThreadPoolExecutor(max_workers=3)
     futures = None
     try:
+        print(addresses)
         futures = {
             executor.submit(
                 _run_closure,
                 closure=closure,
-                addr=first_addr,
-                delay=(
-                    None if first_addr_is_priority
-                    else stagger_delay
-                )
-            ): first_addr,
-            executor.submit(
-                _run_closure,
-                closure=closure,
-                addr=second_addr,
-                delay=(
-                    stagger_delay if first_addr_is_priority
-                    else None
-                )
-            ): second_addr,
+                addr=addr,
+                delay=(None if i == 0 else stagger_delay)
+            ): addr for i, addr in enumerate(addresses)
         }
         for future in as_completed(futures, timeout=max_timeout):
             returned_address = futures[future]
             return_result = future.result()
             return_exception = future.exception()
             if return_result:
-                print(
-                    "Address {} returned first, canceling call to address {}"
-                    .format(
-                        returned_address,
-                        ({first_addr, second_addr} - {returned_address}).pop())
-                )
-
+                print("Address {} returned" .format(returned_address))
             elif return_exception:
                 print("Got exception %s" % return_exception)
             else:
                 print(
-                    "Empty result for addresses: {} and {}".format(
-                        first_addr, second_addr))
+                    "Empty result for address: {}".format(returned_address))
             yield (return_result, return_exception)
 
     # thrown when max_timeout expires
-    except TimeoutError as e:
-        print("Got timeout exception %s" % e)
+    except TimeoutError:
+        print("Timed out waiting for addresses: {}".format(
+            " ".join(map(str, addresses))))
 
-#    finally:
-#        cancel_futures(futures)
     executor.shutdown(wait=False, cancel_futures=True)
     yield (None, None)
 
@@ -437,66 +408,58 @@ def timeup(max_wait, start_time):
     return ((max_wait <= 0) or (time.time() - start_time > max_wait))
 
 
-def check_urls_serial(
-        urls, start_time, loop_n, max_wait, timeout, status_cb,
+def check_url(
+        get_response, url, start_time, loop_n, max_wait, timeout, status_cb,
         headers_cb, headers_redact,
         exception_cb, request_method):
-    for url in urls:
-        now = time.time()
-        if loop_n != 0:
-            if timeup(max_wait, start_time):
-                break
-            if (max_wait is not None and
-                    timeout and (now + timeout > (start_time + max_wait))):
-                # shorten timeout to not run way over max_time
-                timeout = int((start_time + max_wait) - now)
+    now = time.time()
+    if loop_n != 0:
+        if timeup(max_wait, start_time):
+            return
+        if (max_wait is not None and
+                timeout and (now + timeout > (start_time + max_wait))):
+            # shorten timeout to not run way over max_time
+            timeout = int((start_time + max_wait) - now)
 
-        reason = ""
-        url_exc = None
-        try:
-            if headers_cb is not None:
-                headers = headers_cb(url)
-            else:
-                headers = {}
+    reason = ""
+    url_exc = None
+    try:
+        response = get_response()
+        if not response.contents:
+            reason = "empty response [%s]" % (response.code)
+            url_exc = UrlError(ValueError(reason), code=response.code,
+                               headers=response.headers, url=url)
+        elif not response.ok():
+            reason = "bad status code [%s]" % (response.code)
+            url_exc = UrlError(ValueError(reason), code=response.code,
+                               headers=response.headers, url=url)
+        else:
+            return url, response.contents
+    except UrlError as e:
+        reason = "request error [%s]" % e
+        url_exc = e
+    except Exception as e:
+        reason = "unexpected error [%s]" % e
+        url_exc = e
 
-            response = readurl(
-                url, headers=headers, headers_redact=headers_redact,
-                timeout=timeout, check_status=False,
-                request_method=request_method)
-            if not response.contents:
-                reason = "empty response [%s]" % (response.code)
-                url_exc = UrlError(ValueError(reason), code=response.code,
-                                   headers=response.headers, url=url)
-            elif not response.ok():
-                reason = "bad status code [%s]" % (response.code)
-                url_exc = UrlError(ValueError(reason), code=response.code,
-                                   headers=response.headers, url=url)
-            else:
-                return url, response.contents
-        except UrlError as e:
-            reason = "request error [%s]" % e
-            url_exc = e
-        except Exception as e:
-            reason = "unexpected error [%s]" % e
-            url_exc = e
-
-        time_taken = int(time.time() - start_time)
-        max_wait_str = "%ss" % max_wait if max_wait else "unlimited"
-        status_msg = "Calling '%s' failed [%s/%s]: %s" % (url,
-                                                          time_taken,
-                                                          max_wait_str,
-                                                          reason)
-        status_cb(status_msg)
-        if exception_cb:
-            # This can be used to alter the headers that will be sent
-            # in the future, for example this is what the MAAS datasource
-            # does.
-            exception_cb(msg=status_msg, exception=url_exc)
+    time_taken = int(time.time() - start_time)
+    max_wait_str = "%ss" % max_wait if max_wait else "unlimited"
+    status_msg = "Calling '%s' failed [%s/%s]: %s" % (url,
+                                                      time_taken,
+                                                      max_wait_str,
+                                                      reason)
+    status_cb(status_msg)
+    if exception_cb:
+        # This can be used to alter the headers that will be sent
+        # in the future, for example this is what the MAAS datasource
+        # does.
+        exception_cb(msg=status_msg, exception=url_exc)
 
 
 def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
                  headers_cb=None, headers_redact=None, sleep_time=1,
-                 exception_cb=None, sleep_time_cb=None, request_method=None):
+                 exception_cb=None, sleep_time_cb=None, request_method=None,
+                 call_async=False):
     """
     urls:      a list of urls to try
     max_wait:  roughly the maximum time to wait before giving up
@@ -537,6 +500,12 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
     def log_status_cb(msg, exc=None):
         LOG.debug(msg)
 
+    def raise_if_exception(func):
+        val, exc = func()
+        if exc:
+            raise exc
+        return val
+
     if status_cb is None:
         status_cb = log_status_cb
 
@@ -547,17 +516,51 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             sleep_time = sleep_time_cb(response, loop_n)
         else:
             sleep_time = int(loop_n / 5) + 1
-        out = check_urls_serial(
-            urls, start_time, loop_n, max_wait=max_wait, timeout=timeout,
-            status_cb=status_cb, headers_cb=headers_cb,
-            headers_redact=headers_redact, exception_cb=exception_cb,
-            request_method=request_method)
-        if out:
-            return out
+        if call_async:
+            while(True):
+                # This path gets and checks urls one at a time, asynchronously
+                response = partial(
+                    readurl,
+                    headers_redact=headers_redact,
+                    timeout=timeout, check_status=False,
+                    request_method=request_method)
+                call_async = partial(dual_stack, response, urls, max_timeout=max_wait)
+                # maybe we should just raise inside dual_stack?
+                call_async_raise = partial(raise_if_exception, call_async)
+                out = check_url(
+                    call_async_raise, None, start_time, loop_n, max_wait=max_wait,
+                    timeout=timeout,
+                    status_cb=status_cb, headers_cb=headers_cb,
+                    headers_redact=headers_redact, exception_cb=exception_cb,
+                    request_method=request_method)
+                if out:
+                    return out
+
+                if timeup(max_wait, start_time):
+                    break
+        else:
+            # This path gets and checks urls one at a time
+            for url in urls:
+                response = partial(
+                    readurl,
+                    url,
+                    headers_redact=headers_redact,
+                    timeout=timeout, check_status=False,
+                    request_method=request_method)
+                out = check_url(
+                    response, url, start_time, loop_n, max_wait=max_wait,
+                    timeout=timeout,
+                    status_cb=status_cb, headers_cb=headers_cb,
+                    headers_redact=headers_redact, exception_cb=exception_cb,
+                    request_method=request_method)
+                if out:
+                    return out
+
+                if timeup(max_wait, start_time):
+                    break
 
         if timeup(max_wait, start_time):
             break
-
         loop_n = loop_n + 1
         LOG.debug("Please wait %s seconds while we wait to try again",
                   sleep_time)

@@ -290,7 +290,7 @@ class DataSourceEc2(sources.DataSource):
                 urls=urls, max_wait=url_params.max_wait_seconds,
                 timeout=url_params.timeout_seconds, status_cb=LOG.warning,
                 headers_redact=AWS_TOKEN_REDACT, headers_cb=self._get_headers,
-                request_method=request_method)
+                request_method=request_method, call_async=True)
 
             if url:
                 metadata_address = url2base[url]

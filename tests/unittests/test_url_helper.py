@@ -1,12 +1,12 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
 
-import time
 import httpretty
 import logging
 import requests
 import pytest
 from functools import partial
+from time import sleep, process_time
 
 from cloudinit import util
 from cloudinit import version
@@ -178,6 +178,8 @@ class TestRetryOnUrlExc(CiTestCase):
         myerror = UrlError(cause=requests.Timeout('something timed out'))
         self.assertTrue(retry_on_url_exc(msg='', exc=myerror))
 
+from typing import Tuple, Callable
+
 
 def _raise(a):
     raise a
@@ -186,7 +188,7 @@ def _raise(a):
 def _closure_mock_make_second_go_first(closure, addr, delay=None):
     """Unmocked sleep should be canceled before finishing"""
     if addr == 'one':
-        time.sleep(5)
+        sleep(5)
         assert False
 
     return closure(addr)
@@ -200,11 +202,11 @@ def assert_time(func, max_time=1):
     It is possible that this could yield a false positive, but this should
     basically never happen (esp under normal system load).
     """
-    start = time.process_time()
+    start = process_time()
     try:
         out = next(func())
     finally:
-        diff = (time.process_time() - start)
+        diff = (process_time() - start)
         assert diff < max_time
 
     return out
@@ -213,43 +215,43 @@ def assert_time(func, max_time=1):
 class TestDualStack:
 
     @pytest.mark.parametrize(
-        "first_addr,"
-        "second_addr,"
         "closure,"
+        "addresses,"
         "stagger_delay,"
         "max_timeout,"
-        "first_addr_is_priority,"
         "expected_val,"
         "expected_exc",
         [
-            ("one", "two", lambda x:x, 1, 1, True, "one", None),
-            ("one", "two", lambda x:x, 1, 1, False, "two", None),
-            ("one", "two", lambda x:x, 1, 1, False, "two", None),
-            ("one", "two", lambda _:time.sleep(1), 1, 0, True, None, None),
-            (ValueError("one"), "two", _raise, 1, 1, True, None, ValueError),
+            # Assert order based on timeout
+            (lambda x:x, ("one", "two"), 1, 1, "one", None),
+            (lambda x:sleep(1) if x != "two" else x, ("one", "two"), 0, 1, "two", None),
+            (lambda x:sleep(1) if x != "tri" else x, ("one", "two", "tri"), 0, 1, "tri", None),
+
+            # Assert timeout results in (None, None)
+            (lambda _:sleep(1), ("one", "two"), 1, 0, None, None),
+
+            # Assert that exception in closure is returned
+            (_raise, (ValueError("one"), ValueError("two")), 1, 1, None, ValueError),
+
+            # TODO: add httpretty tests
         ])
     def test_dual_stack(
             self,
-            first_addr,
-            second_addr,
             closure,
+            addresses,
             stagger_delay,
             max_timeout,
-            first_addr_is_priority,
             expected_val,
             expected_exc):
-        """Assert various failure modes behave correctly.
-
+        """Assert various failure modes behave as expected
         """
 
         gen = partial(
             dual_stack,
-            first_addr,
-            second_addr,
             closure,
-            stagger_delay,
-            max_timeout,
-            first_addr_is_priority)
+            *addresses,
+            stagger_delay=stagger_delay,
+            max_timeout=max_timeout)
         if expected_exc:
             with pytest.raises(expected_exc):
                 (val, exc) = assert_time(gen)
