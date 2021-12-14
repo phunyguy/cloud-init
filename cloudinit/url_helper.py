@@ -12,6 +12,7 @@ import copy
 import json
 import os
 import time
+from typing import Tuple, Any, Union
 from email.utils import parsedate
 from errno import ENOENT
 from functools import partial
@@ -354,13 +355,16 @@ def dual_stack(
         second_addr,
         closure,
         stagger_delay=0.150,
-        max_timeout=None):
-    """inspired by RFC 6555, "happy eyeballs"
+        max_timeout=None,
+        first_addr_is_priority=True) -> Tuple[Any, Union[BaseException, None]]:
+    """attempt connecting to multiple addresses asynchronously, inspired by
+    RFC 6555, "happy eyeballs"
 
     Run blocking closure against two different addresses staggered with a
-    delay. The first call to return cancels remaining tasks and returns values.
+    delay. The first call to return cancels unscheduled tasks and returns
+    values of the first call.
     Alternatively async libraries could be used (httpx/aiohttp), but this
-    prevents extra deps by providing a wrapper for synchronous calls.
+    prevents extra deps by wrapping synchronous calls
     """
     from concurrent.futures import (
         ThreadPoolExecutor, as_completed)
@@ -371,29 +375,46 @@ def dual_stack(
         # Cancel other future
         for future in futures:
             if not future.done():
-                LOG.debug("Canceled {}".format(str(future)))
+                start = time.process_time()
                 future.cancel()
+                print("Canceled {}".format(str(future)))
+                while not future.done():
+                    pass
+                print("Done at: {:.2f}s".format(
+                    time.process_time() - start))
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = None
-        try:
-            futures = {
-                executor.submit(
-                    _run_closure,
-                    closure=closure,
-                    addr=first_addr): first_addr,
-                executor.submit(
-                    _run_closure,
-                    closure=closure,
-                    addr=second_addr,
-                    delay=stagger_delay): second_addr,
-            }
-            future = next(as_completed(futures))
+    executor = ThreadPoolExecutor(max_workers=3)
+    futures = None
+    try:
+        # Note: need to change this to not schedule executor until delay
+        # Once delay occurs, cancelation fails
+        # async / await model would likely work better
+        futures = {
+            executor.submit(
+                _run_closure,
+                closure=closure,
+                addr=first_addr,
+                delay=(
+                    None if first_addr_is_priority
+                    else stagger_delay
+                )
+            ): first_addr,
+            executor.submit(
+                _run_closure,
+                closure=closure,
+                addr=second_addr,
+                delay=(
+                    stagger_delay if first_addr_is_priority
+                    else None
+                )
+            ): second_addr,
+        }
+        for future in as_completed(futures, timeout=max_timeout):
             returned_address = futures[future]
             return_result = future.result()
-            return_exception = future.exception(timeout=max_timeout)
+            return_exception = future.exception()
             if return_result:
-                LOG.debug(
+                print(
                     "Address {} returned first, canceling call to address {}"
                     .format(
                         returned_address,
@@ -401,19 +422,17 @@ def dual_stack(
                 )
 
             elif return_exception:
-                LOG.warning("Got exception %s" % return_exception)
+                print("Got exception %s" % return_exception)
             else:
-                LOG.warning(
+                print(
                     "Empty result for addresses: {} and {}".format(
                         first_addr, second_addr))
-            cancel_futures(futures)
 
-        finally:
-            cancel_futures(futures)
+    finally:
+        cancel_futures(futures)
+    executor.shutdown(wait=False, cancel_futures=True)
 
-        if return_exception:
-            return return_exception
-        return return_result
+    return (return_result, return_exception)
 
 
 def timeup(max_wait, start_time):
@@ -426,7 +445,6 @@ def check_urls_serial(
         urls, start_time, loop_n, max_wait, timeout, status_cb,
         headers_cb, headers_redact,
         exception_cb, request_method):
-    for url in urls:
         now = time.time()
         if loop_n != 0:
             if timeup(max_wait, start_time):
@@ -532,21 +550,22 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             sleep_time = sleep_time_cb(response, loop_n)
         else:
             sleep_time = int(loop_n / 5) + 1
-        out = check_urls_serial(
-            urls, start_time, loop_n, max_wait=max_wait, timeout=timeout,
-            status_cb=status_cb, headers_cb=headers_cb,
-            headers_redact=headers_redact, exception_cb=exception_cb,
-            request_method=request_method)
-        if out:
-            return out
+        for url in urls:
+            out = check_urls_serial(
+                url, start_time, loop_n, max_wait=max_wait, timeout=timeout,
+                status_cb=status_cb, headers_cb=headers_cb,
+                headers_redact=headers_redact, exception_cb=exception_cb,
+                request_method=request_method)
+            if out:
+                return out
 
-        if timeup(max_wait, start_time):
-            break
+            if timeup(max_wait, start_time):
+                break
 
-        loop_n = loop_n + 1
-        LOG.debug("Please wait %s seconds while we wait to try again",
-                  sleep_time)
-        time.sleep(sleep_time)
+            loop_n = loop_n + 1
+            LOG.debug("Please wait %s seconds while we wait to try again",
+                      sleep_time)
+            time.sleep(sleep_time)
 
     return False, None
 

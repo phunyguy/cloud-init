@@ -6,6 +6,7 @@ import httpretty
 import logging
 import requests
 import pytest
+from functools import partial
 
 from cloudinit import util
 from cloudinit import version
@@ -191,53 +192,72 @@ def _closure_mock_make_second_go_first(closure, addr, delay=None):
     return closure(addr)
 
 
+def assert_time(func, max_time=1):
+    """The following async tests should canceled in under 1ms
+
+    This could potentially produce false positives, but this is very unlikely
+    (esp under normal system load)
+    """
+    start = time.process_time()
+    try:
+        out = func()
+    finally:
+        diff = (time.process_time() - start)
+        assert diff < max_time
+
+    return out
+
+
 class TestDualStack:
 
     @pytest.mark.parametrize(
-        "first_addr,second_addr,closure,stagger_delay,max_timeout,expected",
+        "first_addr,"
+        "second_addr,"
+        "closure,"
+        "stagger_delay,"
+        "max_timeout,"
+        "first_addr_is_priority,"
+        "expected_val,"
+        "expected_exc",
         [
-            ("one", "two", lambda x:x, 5, 1, "one"),
+            ("one", "two", lambda x:x, 5, 1, True, "one", None),
+            ("one", "two", lambda x:x, 5, 1, False, "two", None),
+            (ValueError("one"), "two", _raise, 5, 1, True, None, ValueError),
         ])
-    def test_returns(
+    def test_dual_stack(
             self,
             first_addr,
             second_addr,
             closure,
             stagger_delay,
             max_timeout,
-            expected):
-        assert expected == dual_stack(
-            first_addr,
-            second_addr,
-            closure,
-            stagger_delay,
-            max_timeout)
+            first_addr_is_priority,
+            expected_val,
+            expected_exc):
 
-    @pytest.mark.parametrize(
-        "first_addr,second_addr,closure,stagger_delay,max_timeout,expected",
-        [
-            (ValueError("one"), "two", _raise, 5, 1, ValueError),
-        ])
-    def test_raises(
-            self,
+        func = partial(
+            dual_stack,
             first_addr,
             second_addr,
             closure,
             stagger_delay,
             max_timeout,
-            expected):
-        """Assert that exception in closure bubbles up"""
-        with pytest.raises(expected):
-            dual_stack(
-                first_addr,
-                second_addr,
-                closure,
-                stagger_delay,
-                max_timeout)
+            first_addr_is_priority)
+        if expected_exc:
+            with pytest.raises(expected_exc):
+                (val, exc) = assert_time(func)
+                assert val == expected_val
+                assert exc
+                raise exc
+        else:
+            (val, exc) = assert_time(func)
+            assert (expected_val, expected_exc) == (val, exc)
 
-    @mock.patch("cloudinit.url_helper._run_closure",
-                _closure_mock_make_second_go_first)
-    def test_second_completes_first(self):
-        assert "two" == dual_stack("one", "two", lambda x: x, 0, 1)
+#    def test_second_completes_first(self):
+#        assert ("two", None) == dual_stack(
+#            "one", "two", lambda x: x,
+#            stagger_delay=0.15,
+#            max_timeout=1,
+#            first_addr_is_priority=False)
 
 # vi: ts=4 expandtab
