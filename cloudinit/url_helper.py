@@ -12,7 +12,7 @@ import copy
 import json
 import os
 import time
-from typing import Tuple, Any, Union
+from typing import Tuple, Any, Union, Callable, Iterator
 from email.utils import parsedate
 from errno import ENOENT
 from functools import partial
@@ -353,21 +353,21 @@ def _run_closure(closure, addr, delay=None):
 def dual_stack(
         first_addr,
         second_addr,
-        closure,
-        stagger_delay=0.150,
-        max_timeout=None,
-        first_addr_is_priority=True) -> Tuple[Any, Union[BaseException, None]]:
+        closure: Callable[..., Any],
+        stagger_delay: float = 0.150,
+        max_timeout: int = 10,
+        first_addr_is_priority: bool = True) -> Iterator[
+            Tuple[Any, Union[BaseException, None]]]:
     """attempt connecting to multiple addresses asynchronously, inspired by
     RFC 6555, "happy eyeballs"
 
     Run blocking closure against two different addresses staggered with a
-    delay. The first call to return cancels unscheduled tasks and returns
-    values of the first call.
-    Alternatively async libraries could be used (httpx/aiohttp), but this
-    prevents extra deps by wrapping synchronous calls
+    delay. The first call to return is yielded from this function. Successive
+    calls will return subsequent returned values. This allows for checking
+    returned codes/values and checking the next value returned if needed.
     """
     from concurrent.futures import (
-        ThreadPoolExecutor, as_completed)
+        ThreadPoolExecutor, as_completed, TimeoutError)
     return_exception = None
     return_result = None
 
@@ -375,20 +375,12 @@ def dual_stack(
         # Cancel other future
         for future in futures:
             if not future.done():
-                start = time.process_time()
                 future.cancel()
                 print("Canceled {}".format(str(future)))
-                while not future.done():
-                    pass
-                print("Done at: {:.2f}s".format(
-                    time.process_time() - start))
 
     executor = ThreadPoolExecutor(max_workers=3)
     futures = None
     try:
-        # Note: need to change this to not schedule executor until delay
-        # Once delay occurs, cancelation fails
-        # async / await model would likely work better
         futures = {
             executor.submit(
                 _run_closure,
@@ -427,12 +419,16 @@ def dual_stack(
                 print(
                     "Empty result for addresses: {} and {}".format(
                         first_addr, second_addr))
+            yield (return_result, return_exception)
 
-    finally:
-        cancel_futures(futures)
+    # thrown when max_timeout expires
+    except TimeoutError as e:
+        print("Got timeout exception %s" % e)
+
+#    finally:
+#        cancel_futures(futures)
     executor.shutdown(wait=False, cancel_futures=True)
-
-    return (return_result, return_exception)
+    yield (None, None)
 
 
 def timeup(max_wait, start_time):
@@ -445,6 +441,7 @@ def check_urls_serial(
         urls, start_time, loop_n, max_wait, timeout, status_cb,
         headers_cb, headers_redact,
         exception_cb, request_method):
+    for url in urls:
         now = time.time()
         if loop_n != 0:
             if timeup(max_wait, start_time):
@@ -550,22 +547,21 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             sleep_time = sleep_time_cb(response, loop_n)
         else:
             sleep_time = int(loop_n / 5) + 1
-        for url in urls:
-            out = check_urls_serial(
-                url, start_time, loop_n, max_wait=max_wait, timeout=timeout,
-                status_cb=status_cb, headers_cb=headers_cb,
-                headers_redact=headers_redact, exception_cb=exception_cb,
-                request_method=request_method)
-            if out:
-                return out
+        out = check_urls_serial(
+            urls, start_time, loop_n, max_wait=max_wait, timeout=timeout,
+            status_cb=status_cb, headers_cb=headers_cb,
+            headers_redact=headers_redact, exception_cb=exception_cb,
+            request_method=request_method)
+        if out:
+            return out
 
-            if timeup(max_wait, start_time):
-                break
+        if timeup(max_wait, start_time):
+            break
 
-            loop_n = loop_n + 1
-            LOG.debug("Please wait %s seconds while we wait to try again",
-                      sleep_time)
-            time.sleep(sleep_time)
+        loop_n = loop_n + 1
+        LOG.debug("Please wait %s seconds while we wait to try again",
+                  sleep_time)
+        time.sleep(sleep_time)
 
     return False, None
 

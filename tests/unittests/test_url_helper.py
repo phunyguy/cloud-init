@@ -193,14 +193,16 @@ def _closure_mock_make_second_go_first(closure, addr, delay=None):
 
 
 def assert_time(func, max_time=1):
-    """The following async tests should canceled in under 1ms
+    """Assert function time is limited bounded by a max (default=1s)
 
-    This could potentially produce false positives, but this is very unlikely
-    (esp under normal system load)
+    The following async tests should canceled in under 1ms and have stagger
+    delay and max_
+    It is possible that this could yield a false positive, but this should
+    basically never happen (esp under normal system load).
     """
     start = time.process_time()
     try:
-        out = func()
+        out = next(func())
     finally:
         diff = (time.process_time() - start)
         assert diff < max_time
@@ -220,9 +222,11 @@ class TestDualStack:
         "expected_val,"
         "expected_exc",
         [
-            ("one", "two", lambda x:x, 5, 1, True, "one", None),
-            ("one", "two", lambda x:x, 5, 1, False, "two", None),
-            (ValueError("one"), "two", _raise, 5, 1, True, None, ValueError),
+            ("one", "two", lambda x:x, 1, 1, True, "one", None),
+            ("one", "two", lambda x:x, 1, 1, False, "two", None),
+            ("one", "two", lambda x:x, 1, 1, False, "two", None),
+            ("one", "two", lambda _:time.sleep(1), 1, 0, True, None, None),
+            (ValueError("one"), "two", _raise, 1, 1, True, None, ValueError),
         ])
     def test_dual_stack(
             self,
@@ -234,8 +238,11 @@ class TestDualStack:
             first_addr_is_priority,
             expected_val,
             expected_exc):
+        """Assert various failure modes behave correctly.
 
-        func = partial(
+        """
+
+        gen = partial(
             dual_stack,
             first_addr,
             second_addr,
@@ -245,19 +252,12 @@ class TestDualStack:
             first_addr_is_priority)
         if expected_exc:
             with pytest.raises(expected_exc):
-                (val, exc) = assert_time(func)
+                (val, exc) = assert_time(gen)
                 assert val == expected_val
                 assert exc
                 raise exc
         else:
-            (val, exc) = assert_time(func)
+            (val, exc) = assert_time(gen)
             assert (expected_val, expected_exc) == (val, exc)
-
-#    def test_second_completes_first(self):
-#        assert ("two", None) == dual_stack(
-#            "one", "two", lambda x: x,
-#            stagger_delay=0.15,
-#            max_timeout=1,
-#            first_addr_is_priority=False)
 
 # vi: ts=4 expandtab
