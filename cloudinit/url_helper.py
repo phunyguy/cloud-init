@@ -191,6 +191,7 @@ class HTTPConnectionPoolEarlyConnect(urllib3.HTTPConnectionPool):
     HTTPConnectionPool. Allow early socket opening for negotiating address
     selection.
     """
+
     def _validate_conn(self, conn) -> None:
         """
         Called right before a request is made, after the socket is created.
@@ -214,8 +215,7 @@ class HTTPConnectionPoolEarlyConnect(urllib3.HTTPConnectionPool):
         print("HTTPConnectionPool: validate_conn(): {} ".format(conn))
 
     def connect(self):
-        """Create a connection without creating a request
-        """
+        """Create a connection without creating a request"""
         # Make space in the pool and init an HTTPConnection
         conn = self._get_conn()
 
@@ -242,6 +242,7 @@ class PoolManagerEarlyConnect(urllib3.PoolManager):
     separately which enables dual stack selection (rfc 6555, aka "happy
     eyeballs") prior to the http request.
     """
+
     proxy: Optional[Url] = None
     proxy_config: Optional[Any] = None
 
@@ -257,8 +258,12 @@ class PoolManagerEarlyConnect(urllib3.PoolManager):
         def dispose_func(p: Any) -> None:
             p.close()
 
-        self.pools: RecentlyUsedContainer[PoolKey, HTTPConnectionPoolEarlyConnect]
-        self.pools = RecentlyUsedContainer(num_pools, dispose_func=dispose_func)
+        self.pools: RecentlyUsedContainer[
+            PoolKey, HTTPConnectionPoolEarlyConnect
+        ]
+        self.pools = RecentlyUsedContainer(
+            num_pools, dispose_func=dispose_func
+        )
 
         # Override pool classes from base class
         self.pool_classes_by_scheme = pool_classes_by_scheme
@@ -267,9 +272,8 @@ class PoolManagerEarlyConnect(urllib3.PoolManager):
 
     def connection_from_url(
         self, url: str, pool_kwargs: Optional[Dict[str, Any]] = None
-        ) -> HTTPConnectionPoolEarlyConnect:
-        """Override parent class: Init pool and connect
-        """
+    ) -> HTTPConnectionPoolEarlyConnect:
+        """Override parent class: Init pool and connect"""
         pool = super().connection_from_url(url, pool_kwargs)
         pool.connect()
         print("PoolManager: connection_from_url: {}".format(url))
@@ -277,17 +281,14 @@ class PoolManagerEarlyConnect(urllib3.PoolManager):
 
 
 class HTTPAdapterEarlyConnect(HTTPAdapter):
-    def init_poolmanager(
-            self, connections, maxsize, block=False):
+    def init_poolmanager(self, connections, maxsize, block=False):
         self.poolmanager = PoolManagerEarlyConnect(
-            num_pools=connections,
-            maxsize=maxsize,
-            block=block)
+            num_pools=connections, maxsize=maxsize, block=block
+        )
         print("HTTPAdapter: init_poolmanager")
 
     def connect(self, prefix) -> HTTPConnectionPoolEarlyConnect:
-        """Override parent class: Init pool and connect
-        """
+        """Override parent class: Init pool and connect"""
         print("HTTPAdapter: init_poolmanager: {}".format(prefix))
         return self.poolmanager.connection_from_url(prefix)
 
@@ -307,6 +308,7 @@ class SessionEarlyConnect(Session):
     s.get('https://github.com/')
     ```
     """
+
     def mount(self, prefix, adapter):
         """Override parent class: Register a connection adapter and create the
         initial connection."""
@@ -415,6 +417,7 @@ def readurl(
         # if retries:
         #     req_config['max_retries'] = max(int(retries), 0)
         req_args["config"] = req_config
+    print("manual_retries")
     manual_tries = 1
     if retries:
         manual_tries = max(int(retries) + 1, 1)
@@ -442,6 +445,7 @@ def readurl(
     # doesn't handle sleeping between tries...
     # Infinitely retry if infinite is True
     for i in count() if infinite else range(0, manual_tries):
+        print("retry")
         req_args["headers"] = headers_cb(url)
         filtered_req_args = {}
         for (k, v) in req_args.items():
@@ -530,36 +534,38 @@ def readurl(
 
 
 def get_session_to_first_response(*urls):
-    """ Helper takes list of urls and returns the first
-    """
+    """Helper takes list of urls and returns the first"""
     s = requests.Session()
     a = HTTPAdapterEarlyConnect()
     (session, url) = dual_stack(
-        mount(s, a),
-        *urls,
-        stagger_delay=0.150,
-        max_timeout=1)
+        mount(s, a), *urls, stagger_delay=0.150, max_timeout=1
+    )
     return UrlSession(url, session)
 
 
 def mount(session, adapter, delay_prefix=None, delay=1):
     """Return closure for executing mount"""
+
     def do_mount(prefix):
-        print("do_mount(): session.mount(prefix, adapter):"
-              "{}.mount({}, {})".format(session, prefix, adapter))
+        print(
+            "do_mount(): session.mount(prefix, adapter):"
+            "{}.mount({}, {})".format(session, prefix, adapter)
+        )
         if delay_prefix == prefix:
             time.sleep(delay)
         print("mount: {}:{}".format(session, prefix))
         session.mount(prefix, adapter)
         return (session, prefix)
+
     return do_mount
 
 
 def dual_stack(
-        func: Callable[..., Any],
-        *addresses: str,
-        stagger_delay: float = 0.150,
-        max_timeout: int = 10) -> Any:
+    func: Callable[..., Any],
+    *addresses: str,
+    stagger_delay: float = 0.150,
+    max_timeout: int = 10,
+) -> Any:
     """attempt connecting to multiple addresses asynchronously
 
     Run blocking func against two different addresses staggered with a
@@ -572,11 +578,13 @@ def dual_stack(
     return_result = None
 
     from concurrent.futures import (
-        ThreadPoolExecutor, as_completed, TimeoutError)
+        ThreadPoolExecutor,
+        as_completed,
+        TimeoutError,
+    )
 
     def _run_func(func, addr, delay=None):
-        """Execute func with optional delay
-        """
+        """Execute func with optional delay"""
 
         if delay:
             time.sleep(delay)
@@ -589,8 +597,9 @@ def dual_stack(
                 _run_func,
                 func=func,
                 addr=addr,
-                delay=(None if i == 0 else stagger_delay)
-            ): addr for i, addr in enumerate(addresses)
+                delay=(None if i == 0 else stagger_delay),
+            ): addr
+            for i, addr in enumerate(addresses)
         }
 
         # handle the first function to complete from the threadpool executor
@@ -603,15 +612,17 @@ def dual_stack(
             print("Got exception %s" % return_exception)
             raise return_exception
         elif return_result:
-            print("Address {} returned" .format(returned_address))
+            print("Address {} returned".format(returned_address))
         else:
-            print(
-                "Empty result for address: {}".format(returned_address))
+            print("Empty result for address: {}".format(returned_address))
 
     # when max_timeout expires
     except TimeoutError:
-        print("Timed out waiting for addresses: {}".format(
-            " ".join(map(str, addresses))))
+        print(
+            "Timed out waiting for addresses: {}".format(
+                " ".join(map(str, addresses))
+            )
+        )
 
     # Executor doesn't provide kwargs for setting shutdown behavior
     # in the constructor, otherwise the context manager would be preferred
@@ -621,10 +632,19 @@ def dual_stack(
     return return_result
 
 
-def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
-                 headers_cb=None, headers_redact=None, sleep_time=1,
-                 exception_cb=None, sleep_time_cb=None, request_method=None,
-                 connect_synchronously=True):
+def wait_for_url(
+    urls,
+    max_wait=None,
+    timeout=None,
+    status_cb=None,
+    headers_cb=None,
+    headers_redact=None,
+    sleep_time=1,
+    exception_cb=None,
+    sleep_time_cb=None,
+    request_method=None,
+    connect_synchronously=True,
+):
     """
     urls:      a list of urls to try
     max_wait:  roughly the maximum time to wait before giving up
@@ -676,12 +696,20 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
     def read_url_handle_response(response, url):
         if not response.contents:
             reason = "empty response [%s]" % (response.code)
-            url_exc = UrlError(ValueError(reason), code=response.code,
-                               headers=response.headers, url=url)
+            url_exc = UrlError(
+                ValueError(reason),
+                code=response.code,
+                headers=response.headers,
+                url=url,
+            )
         elif not response.ok():
             reason = "bad status code [%s]" % (response.code)
-            url_exc = UrlError(ValueError(reason), code=response.code,
-                               headers=response.headers, url=url)
+            url_exc = UrlError(
+                ValueError(reason),
+                code=response.code,
+                headers=response.headers,
+                url=url,
+            )
         else:
             reason = ""
             url_exc = None
@@ -705,10 +733,12 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             url_exc = e
         time_taken = int(time.time() - start_time)
         max_wait_str = "%ss" % max_wait if max_wait else "unlimited"
-        status_msg = "Calling '%s' failed [%s/%s]: %s" % (url,
-                                                          time_taken,
-                                                          max_wait_str,
-                                                          reason)
+        status_msg = "Calling '%s' failed [%s/%s]: %s" % (
+            url,
+            time_taken,
+            max_wait_str,
+            reason,
+        )
         status_cb(status_msg)
         if exception_cb:
             # This can be used to alter the headers that will be sent
@@ -728,13 +758,11 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             headers_redact=headers_redact,
             timeout=timeout,
             check_status=False,
-            request_method=request_method)
+            request_method=request_method,
+        )
 
     url_reader_parallel = partial(
-        dual_stack,
-        url_reader_serial,
-        stagger_delay=0.150,
-        max_timeout=timeout
+        dual_stack, url_reader_serial, stagger_delay=0.150, max_timeout=timeout
     )
 
     def read_url_serial(timeout):
@@ -743,8 +771,11 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             if loop_n != 0:
                 if timeup(max_wait, start_time):
                     return
-                if (max_wait is not None and
-                        timeout and (now + timeout > (start_time + max_wait))):
+                if (
+                    max_wait is not None
+                    and timeout
+                    and (now + timeout > (start_time + max_wait))
+                ):
                     # shorten timeout to not run way over max_time
                     timeout = int((start_time + max_wait) - now)
 
@@ -778,6 +809,7 @@ def wait_for_url(urls, max_wait=None, timeout=None, status_cb=None,
             break
 
         loop_n = loop_n + 1
+        LOG.debug(
             "Please wait %s seconds while we wait to try again", sleep_time
         )
         time.sleep(sleep_time)
