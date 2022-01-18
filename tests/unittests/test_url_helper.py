@@ -17,6 +17,7 @@ from cloudinit.url_helper import (
     oauth_headers,
     read_file_or_url,
     retry_on_url_exc,
+    wait_for_url
 )
 from tests.unittests.helpers import CiTestCase, mock, skipIf
 
@@ -223,9 +224,8 @@ def assert_time(func, max_time=1):
 
 
 class TestDualStack:
-    """Async testing suggestions welcome - these basically all rely on
-    sleep and time-bounded assertions for proving ordering. I assume there are
-    better ways of doing this.
+    """Async testing suggestions welcome - these all rely on
+    sleep and time-bounded assertions to prove ordering
     """
 
     @pytest.mark.parametrize(
@@ -238,6 +238,12 @@ class TestDualStack:
         [
             # Assert order based on timeout
             (lambda x: x, ("one", "two"), 1, 1, "one", None),
+
+            # Assert timeout results in (None, None)
+            (lambda _: sleep(1), ("one", "two"), 1, 0, None, None),
+
+            # Assert that exception in func is raised
+            (lambda _: 1 / 0, ("one", "two"), 1, 1, None, ZeroDivisionError),
             (
                 lambda x: sleep(1) if x != "two" else x,
                 ("one", "two"),
@@ -254,10 +260,6 @@ class TestDualStack:
                 "tri",
                 None,
             ),
-            # Assert timeout results in (None, None)
-            (lambda _: sleep(1), ("one", "two"), 1, 0, None, None),
-            # Assert that exception in func is raised
-            (lambda _: 1 / 0, ("one", "two"), 1, 1, None, ZeroDivisionError),
             # TODO: add httpretty tests
         ],
     )
@@ -285,5 +287,38 @@ class TestDualStack:
         else:
             assert expected_val == assert_time(gen)
 
+
+
+
+class TestUrlHelper:
+    uri_sleep="https://sleep"
+
+    @staticmethod
+    def response(_, uri, response_headers):
+        print("in response")
+        if uri == "https://sleep":
+            sleep(1)
+            return [500, response_headers, "NULL"]
+        return [200, response_headers, "0123456789ABCDEF"]
+
+    @httpretty.activate
+    def test_order(self):
+        """Use callbacks"""
+        urls = ["https://first", self.uri_sleep]
+        for url in urls:
+            httpretty.register_uri(
+                httpretty.GET,
+                url,
+                body=self.response)
+        url, code = wait_for_url(
+            urls=urls,
+            max_wait=1,
+            timeout=1,
+            connect_synchronously=False
+        )
+        print(url)
+        print(code)
+        assert url == urls[0]
+        assert code == 200
 
 # vi: ts=4 expandtab
