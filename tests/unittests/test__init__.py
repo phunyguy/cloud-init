@@ -4,6 +4,55 @@ import logging
 import os
 import shutil
 import tempfile
+import sys
+# import re
+
+# old_compile = re.compile
+old_extend = list.extend
+
+callers = {}
+expressions = {}
+
+
+def my_extend(*args, **kwargs):
+    global callers
+    if kwargs.get("callers"):
+        import pprint
+        import collections
+        pprint.pprint(callers)
+        i = collections.Counter(expressions).most_common(10)
+        for values in i:
+            print(values)
+        return
+    name = sys._getframe().f_back.f_code.co_name
+    if not callers.get(name):
+        callers[name] = 0
+    callers[name] = callers[name] + 1
+    return old_extend(*args, **kwargs)
+
+
+#list.extend = my_extend
+
+# def my_compile(*args, **kwargs):
+#     global callers
+#     if kwargs.get("callers"):
+#         import pprint
+#         import collections
+#         pprint.pprint(callers)
+#         i = collections.Counter(expressions).most_common(10)
+#         for values in i:
+#             print(values)
+#         return
+#     name = sys._getframe().f_back.f_code.co_name
+#     if not callers.get(name):
+#         callers[name] = 0
+#     callers[name] = callers[name] + 1
+#     if not expressions.get(args[0]):
+#         expressions[args[0]] = 0
+#     expressions[args[0]] = expressions[args[0]] + 1
+#     return old_compile(*args, **kwargs)
+#
+# re.compile = my_compile
 
 from cloudinit import handlers, helpers, settings, url_helper, util
 from cloudinit.cmd import main

@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import textwrap
+import re
 
 from cloudinit.sources.DataSourceOVF import (
     get_network_config_from_conf,
@@ -631,5 +632,10 @@ class TestVmwareNetConfig(CiTestCase):
         conf = Config(cf)
         self.assertEqual("test-userdata", conf.user_data_name)
 
+
+#def test_um():
+##    print("cache size is: {}".format(len(re._cache)))
+#    list.extend([], callers="test")
+#    assert False
 
 # vi: ts=4 expandtab
