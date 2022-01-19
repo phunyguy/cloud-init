@@ -289,36 +289,33 @@ class TestDualStack:
 
 
 
-
 class TestUrlHelper:
-    uri_sleep="https://sleep"
+    uri_sleep="https://sleep/"
+    success="SUCCESS"
+    fail="FAIL"
 
-    @staticmethod
-    def response(_, uri, response_headers):
-        print("in response")
-        if uri == "https://sleep":
+    @classmethod
+    def response(cls, _, uri, response_headers):
+        if uri == cls.uri_sleep:
             sleep(1)
-            return [500, response_headers, "NULL"]
-        return [200, response_headers, "0123456789ABCDEF"]
+            return [500, response_headers, cls.fail]
+        return [200, response_headers, cls.success]
 
     @httpretty.activate
     def test_order(self):
-        """Use callbacks"""
-        urls = ["https://first", self.uri_sleep]
+        urls = ["https://first/", self.uri_sleep]
         for url in urls:
             httpretty.register_uri(
                 httpretty.GET,
                 url,
                 body=self.response)
-        url, code = wait_for_url(
+        url, response_contents = wait_for_url(
             urls=urls,
             max_wait=1,
             timeout=1,
             connect_synchronously=False
         )
-        print(url)
-        print(code)
         assert url == urls[0]
-        assert code == 200
+        assert response_contents
 
 # vi: ts=4 expandtab
