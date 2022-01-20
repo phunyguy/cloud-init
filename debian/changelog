@@ -3,6 +3,15 @@ cloud-init (21.4-39-ge9634266-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
   * refresh patches:
    + debian/patches/ec2-dont-apply-full-imds-network-config.patch
    + debian/patches/openstack-no-network-config.patch
+   + debian/patches/renderer-do-not-prefer-netplan.patch
+
+ -- Brett Holman <brett.holman@canonical.com>  Thu, 20 Jan 2022 15:09:42 -0700
+
+cloud-init (21.4-39-ge9634266-0ubuntu1~18.04.1) UNRELEASED; urgency=medium
+
+  * refresh patches:
+   + debian/patches/ec2-dont-apply-full-imds-network-config.patch
+   + debian/patches/openstack-no-network-config.patch
   * New upstream snapshot. (LP: #SRU_BUG_NUMBER_HERE)
     - sources/azure: remove unnecessary hostname bounce (#1143)
       [Chris Patterson]
