@@ -456,12 +456,12 @@ def wait_for_url(
     urls,
     max_wait=None,
     timeout=None,
-    status_cb=None,
+    status_cb=LOG.debug,
     headers_cb=None,
     headers_redact=None,
     sleep_time=1,
     exception_cb=None,
-    sleep_time_cb=None,
+    sleep_time_cb=lambda _, loop_number: int(loop_number / 5) + 1,
     request_method=None,
     connect_synchronously=True,
     async_delay=0.150,
@@ -503,9 +503,6 @@ def wait_for_url(
 
     A value of None for max_wait will retry indefinitely.
     """
-
-    def log_status_cb(msg, exc=None):
-        LOG.debug(msg)
 
     def timeup(max_wait, start_time):
         if max_wait is None:
@@ -616,9 +613,6 @@ def wait_for_url(
 
     start_time = time.time()
 
-    if status_cb is None:
-        status_cb = log_status_cb
-
     do_read_url = (
         read_url_serial if connect_synchronously else read_url_parallel
     )
@@ -626,10 +620,7 @@ def wait_for_url(
     loop_n = 0
     response = None
     while True:
-        if sleep_time_cb is not None:
-            sleep_time = sleep_time_cb(response, loop_n)
-        else:
-            sleep_time = int(loop_n / 5) + 1
+        sleep_time = sleep_time_cb(response, loop_n)
 
         url = do_read_url(start_time, timeout)
         if url:
@@ -645,7 +636,8 @@ def wait_for_url(
         time.sleep(sleep_time)
 
         # shorten timeout to not run way over max_time
-        timeout = int((start_time + max_wait) - time.time())
+        # timeout=0.0 causes exceptions in urllib, set to None if zero
+        timeout = int((start_time + max_wait) - time.time()) or None
 
     return False, None
 
