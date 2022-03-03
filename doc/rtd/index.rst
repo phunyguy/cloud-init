@@ -73,7 +73,6 @@ Having trouble? We would like to help!
    topics/security.rst
    topics/debugging.rst
    topics/logging.rst
-   topics/dir_layout.rst
    topics/analyze.rst
    topics/docs.rst
    topics/testing.rst
