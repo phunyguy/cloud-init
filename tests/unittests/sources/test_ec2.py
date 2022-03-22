@@ -210,6 +210,8 @@ SECONDARY_IP_METADATA_2018_09_24 = {
 }
 
 M_PATH_NET = "cloudinit.sources.DataSourceEc2.net."
+RESPONSES_PUT = {}
+RESPONSES_GET = {}
 
 
 def _register_ssh_keys(rfunc, base_url, keys_data):
@@ -247,6 +249,13 @@ def _register_ssh_keys(rfunc, base_url, keys_data):
         rfunc(burl + "/%s/openssh-key" % name, val)
         rfunc(burl + "/%s/openssh-key/" % name, val)
 
+def do_request(method, url):
+    if method is httpretty.PUT:
+        return RESPONSES_PUT.get(url) or None
+    elif method is httpretty.GET:
+        return RESPONSES_GET.get(url) or None
+    else:
+        raise Exception('uh oh')
 
 def register_mock_metaserver(base_url, data):
     """Register with httpretty a ec2 metadata like service serving 'data'.
@@ -290,9 +299,18 @@ def register_mock_metaserver(base_url, data):
             register(base_url, "not found", status=404)
 
     def myreg(*argc, **kwargs):
-        url = argc[0]
-        method = httpretty.PUT if ec2.API_TOKEN_ROUTE in url else httpretty.GET
-        return httpretty.register_uri(method, *argc, **kwargs)
+        url, body = argc
+        r = requests.Response()
+        r.status_code = kwargs.get("status", 200)
+        r.url = url
+        r._content = body
+        if ec2.API_TOKEN_ROUTE in url:
+            #method = httpretty.PUT
+            RESPONSES_PUT[url] = r
+        else:
+            #method = httpretty.GET
+            RESPONSES_GET[url] = r
+
 
     register_helper(myreg, base_url, data)
 
@@ -312,6 +330,7 @@ class TestEc2(test_helpers.HttprettyTestCase):
         self.datasource = ec2.DataSourceEc2
         self.metadata_addr = self.datasource.metadata_urls[0]
         self.tmp = self.tmp_dir()
+        p = mock.patch("cloudinit.url_helper.readurl.sess.request", do_request)
 
     def data_url(self, version, data_item="meta-data"):
         """Return a metadata url based on the version provided."""
