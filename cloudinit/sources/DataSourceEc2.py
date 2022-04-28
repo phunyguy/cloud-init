@@ -20,6 +20,8 @@ from cloudinit import url_helper as uhelp
 from cloudinit import util, warnings
 from cloudinit.event import EventScope, EventType
 from cloudinit.net.dhcp import EphemeralDHCPv4, NoDHCPLeaseError
+from cloudinit.net import EphemeralIPv6Network, NoDHCPLeaseError
+
 
 LOG = logging.getLogger(__name__)
 
@@ -121,11 +123,12 @@ class DataSourceEc2(sources.DataSource):
                 return False
             try:
                 with EphemeralDHCPv4(self.fallback_interface):
-                    self._crawled_metadata = util.log_time(
-                        logfunc=LOG.debug,
-                        msg="Crawl of metadata service",
-                        func=self.crawl_metadata,
-                    )
+                    with EphemeralIPv6Network(self.fallback_interface):
+                        self._crawled_metadata = util.log_time(
+                            logfunc=LOG.debug,
+                            msg="Crawl of metadata service",
+                            func=self.crawl_metadata,
+                        )
             except NoDHCPLeaseError:
                 return False
         else:

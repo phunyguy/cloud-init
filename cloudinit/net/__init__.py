@@ -1564,5 +1564,210 @@ class EphemeralIPv4Network(object):
 class RendererNotFoundError(RuntimeError):
     pass
 
+class EphemeralIPv6Network(object):
+    """Context manager which sets up temporary network configuration
+    """
+    def __init__(
+        self,
+        interface,
+        ip,
+        prefix,
+        broadcast,
+        route=None,
+        connectivity_url_data: Dict[str, Any] = None,
+        static_routes=None,
+    ):
+        """Setup context manager and validate call signature.
 
-# vi: ts=4 expandtab
+        @param interface: Name of the network interface to bring up.
+        @param ip: IP address to assign to the interface.
+        @param prefix: IPv6 uses prefixes, not netmasks
+        @param broadcast: Broadcast address for the IPv4 network.
+        @param route: Optionally the default gateway IP.
+        @param connectivity_url_data: Optionally, a URL to verify if a usable
+           connection already exists.
+        """
+        if not all([interface, ip, prefix, broadcast]):
+            raise ValueError(
+                "Cannot init network on {0} with {1}/{2} and bcast {3}".format(
+                    interface, ip, prefix_or_mask, broadcast
+                )
+            )
+
+        self.connectivity_url_data = connectivity_url_data
+        self.interface = interface
+        self.ip = ip
+        self.broadcast = broadcast
+        self.route = route
+        self.static_routes = static_routes
+        self.cleanup_cmds = []  # List of commands to run to cleanup state.
+
+    def __enter__(self):
+        """Perform ephemeral network setup if interface is not connected."""
+        self._bringup_device()
+        self._bringup_route()
+        if self.connectivity_url_data:
+            if has_url_connectivity(self.connectivity_url_data):
+                LOG.debug(
+                    "Skip ephemeral network setup, instance has connectivity"
+                    " to %s",
+                    self.connectivity_url_data["url"],
+                )
+                return
+
+
+    def __exit__(self, excp_type, excp_value, excp_traceback):
+        """Teardown anything we set up."""
+        for cmd in self.cleanup_cmds:
+            subp.subp(cmd, capture=True)
+
+    def _delete_address(self, address, prefix):
+        """Perform the ip command to remove the specified address."""
+        subp.subp(
+            [
+                "ip",
+                "-family",
+                "inet",
+                "addr",
+                "del",
+                "%s/%s" % (address, prefix),
+                "dev",
+                self.interface,
+            ],
+            capture=True,
+        )
+
+    def _bringup_device(self):
+        """Perform the ip comands to fully setup the device."""
+        cidr = "{0}/{1}".format(self.ip, self.prefix)
+        LOG.debug(
+            "Attempting setup of ephemeral network on %s with %s brd %s",
+            self.interface,
+            cidr,
+            self.broadcast,
+        )
+        try:
+            subp.subp(
+                [
+                    "ip",
+                    "-family",
+                    "inet6",
+                    "addr",
+                    "add",
+                    cidr,
+                    "broadcast",
+                    self.broadcast,
+                    "dev",
+                    self.interface,
+                ],
+                capture=True,
+                update_env={"LANG": "C"},
+            )
+        except subp.ProcessExecutionError as e:
+            if "File exists" not in e.stderr:
+                raise
+            LOG.debug(
+                "Skip ephemeral network setup, %s already has address %s",
+                self.interface,
+                self.ip,
+            )
+        else:
+            # Address creation success, bring up device and queue cleanup
+            subp.subp(
+                [
+                    "ip",
+                    "-family",
+                    "inet6",
+                    "link",
+                    "set",
+                    "dev",
+                    self.interface,
+                    "up",
+                ],
+                capture=True,
+            )
+            self.cleanup_cmds.append(
+                [
+                    "ip",
+                    "-family",
+                    "inet6",
+                    "link",
+                    "set",
+                    "dev",
+                    self.interface,
+                    "down",
+                ]
+            )
+            self.cleanup_cmds.append(
+                [
+                    "ip",
+                    "-family",
+                    "inet6",
+                    "addr",
+                    "del",
+                    cidr,
+                    "dev",
+                    self.interface,
+                ]
+            )
+
+    def _bringup_route(self):
+        """Perform the ip commands to fully setup the route if needed."""
+        # Check if a default route exists and exit if it does
+        out, _ = subp.subp(["ip", "route", "show", "0.0.0.0/0"], capture=True)
+        if "default" in out:
+            LOG.debug(
+                "Skip ephemeral route setup. %s already has default route: %s",
+                self.interface,
+                out.strip(),
+            )
+            return
+        subp.subp(
+            [
+                "ip",
+                "-6",
+                "route",
+                "add",
+                self.router,
+                "dev",
+                self.interface,
+                "src",
+                self.ip,
+            ],
+            capture=True,
+        )
+        self.cleanup_cmds.insert(
+            0,
+            [
+                "ip",
+                "-6",
+                "route",
+                "del",
+                self.router,
+                "dev",
+                self.interface,
+                "src",
+                self.ip,
+            ],
+        )
+        subp.subp(
+            [
+                "ip",
+                "-6",
+                "route",
+                "add",
+                "default",
+                "via",
+                self.router,
+                "dev",
+                self.interface,
+            ],
+            capture=True,
+        )
+        self.cleanup_cmds.insert(
+            0, ["ip", "-6", "route", "del", "default", "dev", self.interface]
+        )
+
+
+class RendererNotFoundError(RuntimeError):
+    pass
