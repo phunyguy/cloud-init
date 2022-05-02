@@ -1681,7 +1681,7 @@ class EphemeralIPv6Network(object):
         self.cleanup_cmds = []  # List of commands to run to cleanup state.
 
     def __enter__(self):
-        """Perform ephemeral network setup if interface is not connected."""
+        """Perform ephemeral network setup and try url"""
         self._bringup_device()
         self._bringup_route()
         if self.connectivity_url_data:
@@ -1692,6 +1692,11 @@ class EphemeralIPv6Network(object):
                     self.connectivity_url_data["url"],
                 )
                 return
+            LOG.debug(
+                "Don't skip ephemeral network setup, instance has connectivity"
+                " to %s",
+                self.connectivity_url_data["url"],
+            )
 
     def __exit__(self, excp_type, excp_value, excp_traceback):
         """Teardown anything we set up."""
