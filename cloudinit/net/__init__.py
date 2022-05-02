@@ -1620,7 +1620,8 @@ def mac_to_ipv6(mac: str) -> str:
     #   +----------------+----------------+----------------+----------------+
     #   The only change is inverting the value of the universal/local bit.
     #
-    # to summarize, link local EUI64 is created by inserting FFFE into the middle
+    # to summarize, link local EUI64 is created by inserting FFFE into the
+    # middle
     # of the mac, inverting the "7th bit" (from the left), and prepending with
     # the link local address FE80
 
