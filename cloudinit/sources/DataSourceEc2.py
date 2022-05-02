@@ -19,9 +19,8 @@ from cloudinit import net, sources
 from cloudinit import url_helper as uhelp
 from cloudinit import util, warnings
 from cloudinit.event import EventScope, EventType
+from cloudinit.net import EphemeralIPv6Network
 from cloudinit.net.dhcp import EphemeralDHCPv4, NoDHCPLeaseError
-from cloudinit.net import EphemeralIPv6Network, NoDHCPLeaseError
-
 
 LOG = logging.getLogger(__name__)
 

@@ -1561,12 +1561,84 @@ class EphemeralIPv4Network(object):
         )
 
 
-class RendererNotFoundError(RuntimeError):
-    pass
+class NoEphemeralInterfaceFound(Exception):
+    """Raised when unable to find a ephemeral DHCP."""
+
+
+def mac_to_ipv6(mac: str) -> str:
+    # https://datatracker.ietf.org/doc/html/rfc4291#section-2.5.6
+    # appendix a
+    #
+    #   [EUI64] defines a method to create an IEEE EUI-64 identifier from an
+    #   IEEE 48-bit MAC identifier.  This is to insert two octets, with
+    #   hexadecimal values of 0xFF and 0xFE (see the Note at the end of
+    #   appendix), in the middle of the 48-bit MAC (between the company_id
+    #   and vendor-supplied id).  An example is the 48-bit IEEE MAC with
+    #   Global scope:
+    #
+    #   |0              1|1              3|3              4|
+    #   |0              5|6              1|2              7|
+    #   +----------------+----------------+----------------+
+    #   |cccccc0gcccccccc|ccccccccmmmmmmmm|mmmmmmmmmmmmmmmm|
+    #   +----------------+----------------+----------------+
+    #   where "c" is the bits of the assigned company_id, "0" is the value of
+    #   the universal/local bit to indicate universal scope, "g" is
+    #   individual/group bit, and "m" is the bits of the manufacturer-
+    #   selected extension identifier.  The IPv6 interface identifier would
+    #   be of the form:
+    #
+    #   |0              1|1              3|3              4|4              6|
+    #   |0              5|6              1|2              7|8              3|
+    #   +----------------+----------------+----------------+----------------+
+    #   |cccccc1gcccccccc|ccccccccmmmmmmmm|mmmmmmmmmmmmmmmm|mmmmmmmmmmmmmmmm|
+    #   +----------------+----------------+----------------+----------------+
+    #   The only change is inverting the value of the universal/local bit.
+    #
+    # to summarize, link local EUI64 is created by inserting FFFE into the middle
+    # of the mac, inverting the "7th bit" (from the left), and prepending with
+    # the link local address FE80
+    link_local_prefix = 0xFE80 << 112
+    if len(mac) != 17:
+        raise ValueError(
+                f"Invalid mac address {mac} length != 17, expected"
+                " format: 00:00:00:00:00:00"
+        )
+
+    try:
+        mac_hex = int(mac.replace(":", ""), 16)
+        mac_hex ^= (1 << 41)
+        right_half = mac_hex & 0xFFFFFF
+        left_half = mac_hex & (0xFFFFFF << 24)
+        eui64 = 0xFFFE000000 | right_half | left_half << 16
+        ipv6 = link_local_prefix | eui64
+
+        return str(ipaddress.IPv6Address(ipv6))
+    except ValueError:
+        raise ValueError(
+            "Failure to derive ipv6 link local address from mac"
+            " address, invalid mac address: {mac}")
+
+
+def get_temp_ipv6(nic: str) -> str:
+    """EUI64"""
+    interface = nic
+    if not nic:
+        interface = find_fallback_nic()
+        if nic is None:
+            LOG.debug("Skip dhcp_discovery: Unable to find fallback nic.")
+            raise NoEphemeralInterfaceFound()
+    elif nic not in get_devicelist():
+        LOG.debug(
+            "Skip dhcp_discovery: nic %s not found in get_devicelist.", nic
+        )
+        raise NoEphemeralInterfaceFound()
+    mac = get_interface_mac(interface)
+    return mac_to_ipv6(mac)
+
 
 class EphemeralIPv6Network(object):
-    """Context manager which sets up temporary network configuration
-    """
+    """Context manager which sets up temporary network configuration"""
+
     def __init__(
         self,
         interface,
@@ -1614,7 +1686,6 @@ class EphemeralIPv6Network(object):
                     self.connectivity_url_data["url"],
                 )
                 return
-
 
     def __exit__(self, excp_type, excp_value, excp_traceback):
         """Teardown anything we set up."""
