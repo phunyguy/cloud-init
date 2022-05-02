@@ -39,6 +39,7 @@ OVS_INTERNAL_INTERFACE_LOOKUP_CMD = [
     "interface",
     "type=internal",
 ]
+IPV6_LINK_LOCAL_PREFIX = 0xFE80 << 112
 
 
 def natural_sort_key(s, _nsre=re.compile("([0-9]+)")):
@@ -1565,6 +1566,31 @@ class NoEphemeralInterfaceFound(Exception):
     """Raised when unable to find a ephemeral DHCP."""
 
 
+class MacAddress(object):
+    def __init__(self, mac: str):
+        if len(mac) != 17:
+            raise ValueError(
+                f"Invalid mac address {mac} length != 17, expected"
+                " format: 00:00:00:00:00:00"
+            )
+        try:
+            self.mac = int(mac.replace(":", ""), 16)
+        except ValueError:
+            raise ValueError(
+                "Failure to derive ipv6 link local address from mac"
+                " address, invalid mac address: {mac}"
+            )
+
+    def to_eui64(self) -> int:
+        mac_hex = self.mac ^ (1 << 41)
+        right_half = mac_hex & 0xFFFFFF
+        left_half = mac_hex & (0xFFFFFF << 24)
+        return left_half << 16 | 0xFFFE000000 | right_half
+
+    def to_ipv6(self) -> int:
+        return IPV6_LINK_LOCAL_PREFIX | self.to_eui64()
+
+
 def mac_to_ipv6(mac: str) -> str:
     # https://datatracker.ietf.org/doc/html/rfc4291#section-2.5.6
     # appendix a
@@ -1597,26 +1623,8 @@ def mac_to_ipv6(mac: str) -> str:
     # to summarize, link local EUI64 is created by inserting FFFE into the middle
     # of the mac, inverting the "7th bit" (from the left), and prepending with
     # the link local address FE80
-    link_local_prefix = 0xFE80 << 112
-    if len(mac) != 17:
-        raise ValueError(
-                f"Invalid mac address {mac} length != 17, expected"
-                " format: 00:00:00:00:00:00"
-        )
 
-    try:
-        mac_hex = int(mac.replace(":", ""), 16)
-        mac_hex ^= (1 << 41)
-        right_half = mac_hex & 0xFFFFFF
-        left_half = mac_hex & (0xFFFFFF << 24)
-        eui64 = 0xFFFE000000 | right_half | left_half << 16
-        ipv6 = link_local_prefix | eui64
-
-        return str(ipaddress.IPv6Address(ipv6))
-    except ValueError:
-        raise ValueError(
-            "Failure to derive ipv6 link local address from mac"
-            " address, invalid mac address: {mac}")
+    return str(ipaddress.IPv6Address(MacAddress(mac).to_ipv6()))
 
 
 def get_temp_ipv6(nic: str) -> str:
@@ -1642,9 +1650,8 @@ class EphemeralIPv6Network(object):
     def __init__(
         self,
         interface,
-        ip,
-        prefix,
-        broadcast,
+        ip=None,
+        prefix=10,
         route=None,
         connectivity_url_data: Dict[str, Any] = None,
         static_routes=None,
@@ -1654,23 +1661,22 @@ class EphemeralIPv6Network(object):
         @param interface: Name of the network interface to bring up.
         @param ip: IP address to assign to the interface.
         @param prefix: IPv6 uses prefixes, not netmasks
-        @param broadcast: Broadcast address for the IPv4 network.
         @param route: Optionally the default gateway IP.
         @param connectivity_url_data: Optionally, a URL to verify if a usable
            connection already exists.
         """
-        if not all([interface, ip, prefix, broadcast]):
+        if not interface:
             raise ValueError(
-                "Cannot init network on {0} with {1}/{2} and bcast {3}".format(
-                    interface, ip, prefix_or_mask, broadcast
+                "Cannot init network on {0} with {1}/{2}".format(
+                    interface, ip, prefix
                 )
             )
 
         self.connectivity_url_data = connectivity_url_data
         self.interface = interface
-        self.ip = ip
-        self.broadcast = broadcast
+        self.ip = ip if ip else get_temp_ipv6(interface)
         self.route = route
+        self.prefix = prefix
         self.static_routes = static_routes
         self.cleanup_cmds = []  # List of commands to run to cleanup state.
 
@@ -1698,7 +1704,7 @@ class EphemeralIPv6Network(object):
             [
                 "ip",
                 "-family",
-                "inet",
+                "inet6",
                 "addr",
                 "del",
                 "%s/%s" % (address, prefix),
@@ -1712,10 +1718,9 @@ class EphemeralIPv6Network(object):
         """Perform the ip comands to fully setup the device."""
         cidr = "{0}/{1}".format(self.ip, self.prefix)
         LOG.debug(
-            "Attempting setup of ephemeral network on %s with %s brd %s",
+            "Attempting setup of ephemeral network on %s with %s",
             self.interface,
             cidr,
-            self.broadcast,
         )
         try:
             subp.subp(
@@ -1726,8 +1731,6 @@ class EphemeralIPv6Network(object):
                     "addr",
                     "add",
                     cidr,
-                    "broadcast",
-                    self.broadcast,
                     "dev",
                     self.interface,
                 ],
@@ -1799,7 +1802,7 @@ class EphemeralIPv6Network(object):
                 "-6",
                 "route",
                 "add",
-                self.router,
+                self.route,
                 "dev",
                 self.interface,
                 "src",
@@ -1814,7 +1817,7 @@ class EphemeralIPv6Network(object):
                 "-6",
                 "route",
                 "del",
-                self.router,
+                self.route,
                 "dev",
                 self.interface,
                 "src",
@@ -1829,7 +1832,7 @@ class EphemeralIPv6Network(object):
                 "add",
                 "default",
                 "via",
-                self.router,
+                self.route,
                 "dev",
                 self.interface,
             ],
