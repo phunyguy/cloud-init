@@ -1829,12 +1829,13 @@ class Test_mac_to_ipv6:
     @pytest.mark.parametrize(
         "mac,ipv6,exception",
         (
-            ("FF:FF:FF:FF:FF:FF", "FE80::FDFF:FFFF:FEFF:FFFF".lower(), None),
-            ("00:88:88:88:88:88", "FE80::288:88FF:FE88:8888".lower(), None),
+            ("FF:FF:FF:FF:FF:FF", "FE80::FDFF:FFFF:FEFF:FFFF", None),
+            ("00:88:88:88:88:88", "FE80::288:88FF:FE88:8888", None),
+            ("06:57:f2:a4:64:30", "fe80::457:f2ff:fea4:6430", None),
         ),
     )
     def test_mac_to_ipv6(self, mac, ipv6, exception):
         if exception:
             with pytest.raises(exception):
                 net.mac_to_ipv6(mac)
-        assert net.mac_to_ipv6(mac) == ipv6
+        assert net.mac_to_ipv6(mac) == ipv6.lower()
