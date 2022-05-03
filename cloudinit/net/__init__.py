@@ -1807,6 +1807,9 @@ class EphemeralIPv6Network(object):
                 out.strip(),
             )
             return
+        else:
+            print("ip -6 route show dev <dev> default")
+            print(out)
         subp.subp(
             [
                 "ip",
