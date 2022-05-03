@@ -1437,12 +1437,14 @@ class EphemeralIPv4Network(object):
                 update_env={"LANG": "C"},
             )
         except subp.ProcessExecutionError as e:
-            if "File exists" not in e.stderr:
+            if "File exists" not in str(e.stderr):
                 raise
             LOG.debug(
-                "Skip ephemeral network setup, %s already has address %s",
+                "Skip ephemeral network setup, %s already has address %s, "
+                "error %s",
                 self.interface,
                 self.ip,
+                e
             )
         else:
             # Address creation success, bring up device and queue cleanup
@@ -1694,7 +1696,11 @@ class EphemeralIPv6Network(object):
             else:
                 LOG.debug(
                     "Setting up ephemeral network for %s using temporary "
-                        "address %s/%s", self.interface, self.ip, self.prefix)
+                    "address %s/%s",
+                    self.interface,
+                    self.ip,
+                    self.prefix,
+                )
         self._bringup_device()
         self._bringup_route()
 
