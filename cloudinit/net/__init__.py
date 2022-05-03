@@ -1440,11 +1440,9 @@ class EphemeralIPv4Network(object):
             if "File exists" not in str(e.stderr):
                 raise
             LOG.debug(
-                "Skip ephemeral network setup, %s already has address %s, "
-                "error %s",
+                "Skip ephemeral network setup, %s already has address %s",
                 self.interface,
                 self.ip,
-                e
             )
         else:
             # Address creation success, bring up device and queue cleanup
@@ -1799,7 +1797,9 @@ class EphemeralIPv6Network(object):
     def _bringup_route(self):
         """Perform the ip commands to fully setup the route if needed."""
         # Check if a default route exists and exit if it does
-        out, _ = subp.subp(["ip", "route", "show", "0.0.0.0/0"], capture=True)
+        out, _ = subp.subp(
+            ["ip", "-6", "route", "show", "dev", self.interface, "default" ],
+            capture=True)
         if "default" in out:
             LOG.debug(
                 "Skip ephemeral route setup. %s already has default route: %s",
