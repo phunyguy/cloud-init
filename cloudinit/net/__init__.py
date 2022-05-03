@@ -1678,7 +1678,7 @@ class EphemeralIPv6Network(object):
         )
         self._check_connectivity()
 
-    def __exit__(self):
+    def __exit__(self, *kwargs):
         """Teardown anything we set up."""
         subp.subp(
             ["ip", "link", "set", "dev", self.interface, "down"],
