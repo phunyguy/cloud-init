@@ -1832,10 +1832,17 @@ class Test_mac_to_ipv6:
             ("FF:FF:FF:FF:FF:FF", "FE80::FDFF:FFFF:FEFF:FFFF", None),
             ("00:88:88:88:88:88", "FE80::288:88FF:FE88:8888", None),
             ("06:57:f2:a4:64:30", "fe80::457:f2ff:fea4:6430", None),
+            ("00:bb:cc:dd:11:22", "fe80::2BB:CCFF:FEDD:1122", None),
+            ("00:12:7f:eb:6b:40", "FE80::212:7FFF:FEEB:6B40", None),
+            # this format (used by arista and some others) is not supported
+            ("0657.f2a4.6430", "fe80::457:f2ff:fea4:6430", ValueError),
+            # not a valid format, test failure to cast to int due to characters
+            ("06.57.f2.a4.64.30", "fe80::457:f2ff:fea4:6430", ValueError),
         ),
     )
     def test_mac_to_ipv6(self, mac, ipv6, exception):
         if exception:
             with pytest.raises(exception):
                 net.mac_to_ipv6(mac)
-        assert net.mac_to_ipv6(mac) == ipv6.lower()
+        else:
+            assert net.mac_to_ipv6(mac) == ipv6.lower()
