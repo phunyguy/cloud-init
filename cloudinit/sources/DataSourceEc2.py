@@ -56,9 +56,10 @@ class DataSourceEc2(sources.DataSource):
     # Default metadata urls that will be used if none are provided
     # They will be checked for 'resolveability' and some of the
     # following may be discarded if they do not resolve
+    v6_url = "http://[fd00:ec2::254]"
     metadata_urls = [
         "http://169.254.169.254",
-        "http://[fd00:ec2::254]",
+        v6_url,
         "http://instance-data.:8773",
     ]
 
@@ -122,9 +123,13 @@ class DataSourceEc2(sources.DataSource):
                 return False
             try:
                 with EphemeralDHCPv4(self.fallback_interface):
-                    print("in ephemeral v4")
-                    with EphemeralIPv6Network(self.fallback_interface):
-                        print("in ephemeral v6")
+                    with EphemeralIPv6Network(
+                        self.fallback_interface,
+                        connectivity_url_data={
+                            "url": self.v6_url,
+                            "timeout": 10,
+                        },
+                    ):
                         self._crawled_metadata = util.log_time(
                             logfunc=LOG.debug,
                             msg="Crawl of metadata service",

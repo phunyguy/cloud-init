@@ -1662,11 +1662,7 @@ class EphemeralIPv6Network(object):
            connection already exists.
         """
         if not interface:
-            raise ValueError(
-                "Cannot init network on {0}".format(
-                    interface
-                )
-            )
+            raise ValueError("Cannot init network on {0}".format(interface))
 
         self.connectivity_url_data = connectivity_url_data
         self.interface = interface
@@ -1676,15 +1672,17 @@ class EphemeralIPv6Network(object):
 
         https://www.kernel.org/doc/html/latest/networking/ipv6.html
         """
-        subp.subp([ "ip", "link", "set", "dev", self.interface, "up" ],
-                capture=True,
+        subp.subp(
+            ["ip", "link", "set", "dev", self.interface, "up"],
+            capture=True,
         )
         self._check_connectivity()
 
     def __exit__(self):
         """Teardown anything we set up."""
-        subp.subp([ "ip", "link", "set", "dev", self.interface, "down" ],
-                capture=True,
+        subp.subp(
+            ["ip", "link", "set", "dev", self.interface, "down"],
+            capture=True,
         )
 
     def _check_connectivity(self):
@@ -1701,7 +1699,6 @@ class EphemeralIPv6Network(object):
                     "Connectivity url is inaccessible: %s",
                     self.connectivity_url_data["url"],
                 )
-
 
 
 class RendererNotFoundError(RuntimeError):
