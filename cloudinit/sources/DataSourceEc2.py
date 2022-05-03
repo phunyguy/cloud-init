@@ -122,19 +122,19 @@ class DataSourceEc2(sources.DataSource):
                 LOG.debug("FreeBSD doesn't support running dhclient with -sf")
                 return False
             try:
-                with EphemeralDHCPv4(self.fallback_interface):
-                    with EphemeralIPv6Network(
-                        self.fallback_interface,
-                        connectivity_url_data={
-                            "url": self.v6_url,
-                            "timeout": 10,
-                        },
-                    ):
-                        self._crawled_metadata = util.log_time(
-                            logfunc=LOG.debug,
-                            msg="Crawl of metadata service",
-                            func=self.crawl_metadata,
-                        )
+                #with EphemeralDHCPv4(self.fallback_interface):
+                with EphemeralIPv6Network(
+                    self.fallback_interface,
+                    connectivity_url_data={
+                        "url": self.v6_url,
+                        "timeout": 10,
+                    },
+                ):
+                    self._crawled_metadata = util.log_time(
+                        logfunc=LOG.debug,
+                        msg="Crawl of metadata service",
+                        func=self.crawl_metadata,
+                    )
             except NoDHCPLeaseError:
                 return False
         else:
