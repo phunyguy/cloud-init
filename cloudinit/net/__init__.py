@@ -1651,8 +1651,6 @@ class EphemeralIPv6Network(object):
     def __init__(
         self,
         interface,
-        ip=None,
-        prefix=10,
         connectivity_url_data: Dict[str, Any] = None,
     ):
         """Setup context manager and validate call signature.
@@ -1665,170 +1663,46 @@ class EphemeralIPv6Network(object):
         """
         if not interface:
             raise ValueError(
-                "Cannot init network on {0} with {1}/{2}".format(
-                    interface, ip, prefix
+                "Cannot init network on {0}".format(
+                    interface
                 )
             )
 
         self.connectivity_url_data = connectivity_url_data
         self.interface = interface
-        self.ip = ip if ip else get_temp_ipv6(interface)
-        self.prefix = prefix
-        self.cleanup_cmds = []  # List of commands to run to cleanup state.
+
+    def _bringup_interface(self):
+        """linux kernel does autoconfiguration even when autoconf=0
+
+        https://www.kernel.org/doc/html/latest/networking/ipv6.html
+        """
+        subp.subp(
+            [
+                "ip",
+                "link",
+                "set",
+                "dev",
+                self.interface,
+                "up"
+            ],
+            capture=True,
+        )
 
     def __enter__(self):
-        """Perform ephemeral network setup and try url"""
+        """Perform ipv6 network setup and try url"""
+        self._bringup_interface()
         if self.connectivity_url_data:
             if has_url_connectivity(self.connectivity_url_data):
                 LOG.debug(
-                    "Skip ephemeral network setup, instance has connectivity"
-                    " to %s",
+                    "Connectivity url is %s",
                     self.connectivity_url_data["url"],
                 )
                 return
             else:
                 LOG.debug(
-                    "Setting up ephemeral network for %s using temporary "
-                    "address %s/%s",
-                    self.interface,
-                    self.ip,
-                    self.prefix,
+                    "Connectivity url is inaccessible: %s",
+                    self.connectivity_url_data["url"],
                 )
-        self._bringup_device()
-        self._bringup_route()
-
-    def __exit__(self, excp_type, excp_value, excp_traceback):
-        """Teardown anything we set up."""
-        for cmd in self.cleanup_cmds:
-            subp.subp(cmd, capture=True)
-
-    def _delete_address(self, address, prefix):
-        """Perform the ip command to remove the specified address."""
-        subp.subp(
-            [
-                "ip",
-                "-family",
-                "inet6",
-                "addr",
-                "del",
-                "%s/%s" % (address, prefix),
-                "dev",
-                self.interface,
-            ],
-            capture=True,
-        )
-
-    def _bringup_device(self):
-        """Perform the ip comands to fully setup the device."""
-        cidr = "{0}/{1}".format(self.ip, self.prefix)
-        LOG.debug(
-            "Attempting setup of ephemeral network on %s with %s",
-            self.interface,
-            cidr,
-        )
-        try:
-            subp.subp(
-                [
-                    "ip",
-                    "-family",
-                    "inet6",
-                    "addr",
-                    "add",
-                    cidr,
-                    "dev",
-                    self.interface,
-                ],
-                capture=True,
-                update_env={"LANG": "C"},
-            )
-        except subp.ProcessExecutionError as e:
-            if "File exists" not in e.stderr:
-                raise
-            LOG.debug(
-                "Skip ephemeral network setup, %s already has address %s",
-                self.interface,
-                self.ip,
-            )
-        else:
-            # Address creation success, bring up device and queue cleanup
-            subp.subp(
-                [
-                    "ip",
-                    "-family",
-                    "inet6",
-                    "link",
-                    "set",
-                    "dev",
-                    self.interface,
-                    "up",
-                ],
-                capture=True,
-            )
-            self.cleanup_cmds.append(
-                [
-                    "ip",
-                    "-family",
-                    "inet6",
-                    "link",
-                    "set",
-                    "dev",
-                    self.interface,
-                    "down",
-                ]
-            )
-            self.cleanup_cmds.append(
-                [
-                    "ip",
-                    "-family",
-                    "inet6",
-                    "addr",
-                    "del",
-                    cidr,
-                    "dev",
-                    self.interface,
-                ]
-            )
-
-    def _bringup_route(self):
-        """Perform the ip commands to fully setup the route if needed."""
-        # Check if a default route exists and exit if it does
-        out, _ = subp.subp(
-            ["ip", "-6", "route", "show", "dev", self.interface, "default" ],
-            capture=True)
-        if "default" in out:
-            LOG.debug(
-                "Skip ephemeral route setup. %s already has default route: %s",
-                self.interface,
-                out.strip(),
-            )
-            return
-        else:
-            print("ip -6 route show dev <dev> default")
-            print(out)
-        subp.subp(
-            [
-                "ip",
-                "-6",
-                "route",
-                "add",
-                "default",
-                "via",
-                self.ip,
-            ],
-            capture=True,
-        )
-        self.cleanup_cmds.insert(
-            0,
-            [
-                "ip",
-                "-6",
-                "route",
-                "del",
-                "default",
-                "via",
-                self.ip,
-            ],
-        )
 
 
 class RendererNotFoundError(RuntimeError):
