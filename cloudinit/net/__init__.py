@@ -1653,16 +1653,13 @@ class EphemeralIPv6Network(object):
         interface,
         ip=None,
         prefix=10,
-        route=None,
         connectivity_url_data: Dict[str, Any] = None,
-        static_routes=None,
     ):
         """Setup context manager and validate call signature.
 
         @param interface: Name of the network interface to bring up.
         @param ip: IP address to assign to the interface.
         @param prefix: IPv6 uses prefixes, not netmasks
-        @param route: Optionally the default gateway IP.
         @param connectivity_url_data: Optionally, a URL to verify if a usable
            connection already exists.
         """
@@ -1676,9 +1673,7 @@ class EphemeralIPv6Network(object):
         self.connectivity_url_data = connectivity_url_data
         self.interface = interface
         self.ip = ip if ip else get_temp_ipv6(interface)
-        self.route = route
         self.prefix = prefix
-        self.static_routes = static_routes
         self.cleanup_cmds = []  # List of commands to run to cleanup state.
 
     def __enter__(self):
@@ -1829,29 +1824,10 @@ class EphemeralIPv6Network(object):
                 "-6",
                 "route",
                 "del",
-                self.route,
-                "dev",
-                self.interface,
-                "src",
-                self.ip,
-            ],
-        )
-        subp.subp(
-            [
-                "ip",
-                "-6",
-                "route",
-                "add",
                 "default",
                 "via",
-                self.route,
-                "dev",
-                self.interface,
+                self.ip,
             ],
-            capture=True,
-        )
-        self.cleanup_cmds.insert(
-            0, ["ip", "-6", "route", "del", "default", "dev", self.interface]
         )
 
 
