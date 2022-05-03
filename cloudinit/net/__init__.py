@@ -1666,6 +1666,7 @@ class EphemeralIPv6Network(object):
         @param connectivity_url_data: Optionally, a URL to verify if a usable
            connection already exists.
         """
+        print("in ephemeral v6 __init__")
         if not interface:
             raise ValueError(
                 "Cannot init network on {0} with {1}/{2}".format(
@@ -1683,6 +1684,7 @@ class EphemeralIPv6Network(object):
 
     def __enter__(self):
         """Perform ephemeral network setup and try url"""
+        print("in ephemeral v6 __enter__")
         self._bringup_device()
         self._bringup_route()
         if self.connectivity_url_data:
@@ -1701,11 +1703,13 @@ class EphemeralIPv6Network(object):
 
     def __exit__(self, excp_type, excp_value, excp_traceback):
         """Teardown anything we set up."""
+        print("in ephemeral v6 __exit__")
         for cmd in self.cleanup_cmds:
             subp.subp(cmd, capture=True)
 
     def _delete_address(self, address, prefix):
         """Perform the ip command to remove the specified address."""
+        print("in ephemeral v6 _delete_address")
         subp.subp(
             [
                 "ip",
@@ -1722,6 +1726,7 @@ class EphemeralIPv6Network(object):
 
     def _bringup_device(self):
         """Perform the ip comands to fully setup the device."""
+        print("in ephemeral v6 _bringup_device")
         cidr = "{0}/{1}".format(self.ip, self.prefix)
         LOG.debug(
             "Attempting setup of ephemeral network on %s with %s",
@@ -1794,6 +1799,7 @@ class EphemeralIPv6Network(object):
     def _bringup_route(self):
         """Perform the ip commands to fully setup the route if needed."""
         # Check if a default route exists and exit if it does
+        print("in ephemeral v6 _bringup_route")
         out, _ = subp.subp(["ip", "route", "show", "0.0.0.0/0"], capture=True)
         if "default" in out:
             LOG.debug(

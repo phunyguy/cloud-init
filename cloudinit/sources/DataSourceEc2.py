@@ -122,7 +122,9 @@ class DataSourceEc2(sources.DataSource):
                 return False
             try:
                 with EphemeralDHCPv4(self.fallback_interface):
+                    print("in ephemeral v4")
                     with EphemeralIPv6Network(self.fallback_interface):
+                        print("in ephemeral v6")
                         self._crawled_metadata = util.log_time(
                             logfunc=LOG.debug,
                             msg="Crawl of metadata service",
