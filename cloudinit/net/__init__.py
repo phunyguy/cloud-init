@@ -1671,26 +1671,24 @@ class EphemeralIPv6Network(object):
         self.connectivity_url_data = connectivity_url_data
         self.interface = interface
 
-    def _bringup_interface(self):
+    def __enter__(self):
         """linux kernel does autoconfiguration even when autoconf=0
 
         https://www.kernel.org/doc/html/latest/networking/ipv6.html
         """
-        subp.subp(
-            [
-                "ip",
-                "link",
-                "set",
-                "dev",
-                self.interface,
-                "up"
-            ],
-            capture=True,
+        subp.subp([ "ip", "link", "set", "dev", self.interface, "up" ],
+                capture=True,
+        )
+        self._check_connectivity()
+
+    def __exit__(self):
+        """Teardown anything we set up."""
+        subp.subp([ "ip", "link", "set", "dev", self.interface, "down" ],
+                capture=True,
         )
 
-    def __enter__(self):
-        """Perform ipv6 network setup and try url"""
-        self._bringup_interface()
+    def _check_connectivity(self):
+        """Try url"""
         if self.connectivity_url_data:
             if has_url_connectivity(self.connectivity_url_data):
                 LOG.debug(
@@ -1703,6 +1701,7 @@ class EphemeralIPv6Network(object):
                     "Connectivity url is inaccessible: %s",
                     self.connectivity_url_data["url"],
                 )
+
 
 
 class RendererNotFoundError(RuntimeError):
