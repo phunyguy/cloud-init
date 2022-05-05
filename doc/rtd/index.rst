@@ -31,7 +31,7 @@ Having trouble? We would like to help!
    :titlesonly:
    :caption: Getting Started
 
-   topics/tutorial.rst
+   topics/tutorials.rst
    topics/availability.rst
    topics/boot.rst
    topics/cli.rst

@@ -1,0 +1,17 @@
+.. _tutorials:
+
+Tutorials
+*********
+
+Since cloud-init can run on a variety of different virtualization platforms
+and clouds, we are hoping to provide "getting started" tutorials so users
+can get up and running as easily as possible on their preferred platform.
+
+Tutorials
+=========
+
+.. toctree::
+   :titlesonly:
+
+   tutorials/lxd.rst
+   tutorials/qemu.rst
