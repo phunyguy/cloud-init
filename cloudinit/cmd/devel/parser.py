@@ -6,7 +6,7 @@
 
 import argparse
 
-from . import hotplug_hook, make_mime, net_convert, render
+from . import hotplug_hook, make_mime, net_convert, render, arping
 
 
 def get_parser(parser=None):
@@ -32,6 +32,7 @@ def get_parser(parser=None):
             net_convert.handle_args,
         ),
         (render.NAME, render.__doc__, render.get_parser, render.handle_args),
+        (arping.NAME, arping.__doc__, arping.get_parser, arping.handle_args),
         (
             make_mime.NAME,
             make_mime.__doc__,

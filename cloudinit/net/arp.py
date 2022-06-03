@@ -175,10 +175,10 @@ def select_link_local_ipv4_address(mac, socket, scan=False):
     event.set()
     thread.join()
 
-def main():
+def arping(iface):
     try:
         s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
-        s.bind((sys.argv[1], ETH_TYPE_ARP))
+        s.bind((iface, ETH_TYPE_ARP))
         mac = s.getsockname()[4]
     except OSError as e:
         print(e)
@@ -186,4 +186,4 @@ def main():
     select_link_local_ipv4_address(mac, s, scan=False)
 
 if "__main__" == __name__:
-    main()
+    arping(sys.argv[1])
