@@ -9,6 +9,12 @@ import time
 from ipaddress import IPv4Address
 from typing import Iterator
 
+# https://github.com/secdev/scapy/blob/master/scapy/layers/l2.py
+# https://datatracker.ietf.org/doc/html/rfc3927#section-2.1
+#
+# man packet
+# man socket
+
 # https://datatracker.ietf.org/doc/html/rfc3927#section-2.4
 #
 # Commands for verification:
@@ -31,6 +37,8 @@ RATE_LIMIT_INTERVAL = 60 # seconds  (delay between successive attempts)
 DEFEND_INTERVAL     = 10 # seconds  (minimum interval between defensive ARPs).
 ETH_BROADCAST       = 'ff:ff:ff:ff:ff:ff'
 ETH_TYPE_ARP        = 0x0806
+OP_REQUEST          = 1
+OP_REPLY            = 2
 # fmt: on
 
 
@@ -69,9 +77,6 @@ def get_ips(_) -> Iterator[IPv4Address]:
             yield IPv4Address("169.254.{}.{}".format(i, j))
 
 
-# https://github.com/secdev/scapy/blob/master/scapy/layers/l2.py
-# https://jrydberg-blog.tumblr.com/post/10518729490/sending-a-gratuitous-arp-with-python
-# https://datatracker.ietf.org/doc/html/rfc3927#section-2.1
 def gratuitous_arp(ip, mac, socket):
     sender_hardware_address = mac
     sender_ip_address = 0
@@ -127,7 +132,6 @@ def gratuitous_arp(ip, mac, socket):
 
 
 def arp_listen(socket):
-    """Needs to timeout every second or so for event checking & cleanup"""
     return socket.recv(4096)
 
 
@@ -156,7 +160,7 @@ def gather_arps(mac, socket):
     return (q, e, t)
 
 
-def arp_matches_mac(mac, ret):
+def arp_matches_mac(mac, ret) -> bool:
     raise NotImplemented
 
 
@@ -205,7 +209,7 @@ def discover_interace(iface):
     try:
         s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
         s.bind((iface, ETH_TYPE_ARP))
-        s.settimeout(0.1)
+        s.settimeout(0.5)
         mac = s.getsockname()[4]
     except OSError as e:
         print(e)
@@ -225,26 +229,46 @@ def get_dst_hw(frame: bytes) -> str:
     return get_hw_addr(frame[6:12])
 
 
-def get_ipv4_addr(addr: bytes) -> str:
-    return ".".join(str(int(i)) for i in addr)
+def get_ipv4_addr(addr: bytes) -> IPv4Address:
+    return IPv4Address(".".join(str(int(i)) for i in addr))
 
 
-def get_src_ipv4(frame: bytes) -> str:
+def get_src_ipv4(frame: bytes) -> IPv4Address:
     return get_ipv4_addr(frame[28:32])
 
 
-def get_dst_ipv4(frame: bytes) -> str:
+def get_dst_ipv4(frame: bytes) -> IPv4Address:
     return get_ipv4_addr(frame[38:42])
 
 
-def arpdump(iface, debug=False):
+def get_op(frame: bytes) -> int:
+    return int(frame[21:22][0])
+
+
+def get_op_name(frame: bytes) -> str:
+    op = get_op(frame)
+    if op == OP_REQUEST:
+        return "Request"
+    elif op == OP_REPLY:
+        return "Reply"
+    else:
+        raise ValueError(
+            f"Invalid op: {op} is not in set({OP_REQUEST}, {OP_REPLY})"
+        )
+
+
+def arp_dump(iface, debug=False):
+    """Implementation doesn't use promiscuous mode. Only arps directed to
+    the specified iface or broadcast will be observed.
+    """
     socket, mac = discover_interace(iface)
     queue, event, thread = gather_arps(mac, socket)
     try:
         while True:
             frame = queue.get()
             print(
-                "src mac: {} src ip: {}\ndst mac: {} src ip: {}".format(
+                "op: {}\nsrc mac: {} src ip: {}\ndst mac: {} src ip: {}".format(
+                    get_op_name(frame),
                     get_src_hw(frame),
                     get_src_ipv4(frame),
                     get_dst_hw(frame),
@@ -258,11 +282,17 @@ def arpdump(iface, debug=False):
 
     event.set()
     thread.join()
+    socket.close()
+
+
+def arp_probe(iface):
+    socket, mac = discover_interace(iface)
 
 
 def arping(iface):
-    s, mac = discover_interace(iface)
-    select_link_local_ipv4_address(mac, s, scan=False)
+    socket, mac = discover_interace(iface)
+    select_link_local_ipv4_address(mac, socket, scan=False)
+    socket.close()
 
 
 if "__main__" == __name__:

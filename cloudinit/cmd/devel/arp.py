@@ -41,10 +41,9 @@ def get_parser(parser=None):
     )
 
 
-
 def handle_args(_, args):
     if args.dump:
-        arp.arpdump(args.interface)
+        arp.arp_dump(args.interface)
     elif args.ping:
         arp.arping(args.interface)
     else:
