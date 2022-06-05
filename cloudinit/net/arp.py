@@ -1,13 +1,14 @@
-from ipaddress import IPv4Address
-import random
-import time
-import sys
 import os
-import typing
 import queue
-import threading
+import random
 import socket
 import struct
+import sys
+import threading
+import time
+from ipaddress import IPv4Address
+from typing import Iterator
+
 # https://datatracker.ietf.org/doc/html/rfc3927#section-2.4
 #
 # Commands for verification:
@@ -17,6 +18,7 @@ import struct
 # ip neigh show
 
 # Assumes L2 supports arp
+# fmt: off
 PROBE_WAIT          =  1 # second   (initial random delay)
 PROBE_NUM           =  3 #          (number of probe packets)
 PROBE_MIN           =  1 # second   (minimum delay till repeated probe)
@@ -27,38 +29,41 @@ ANNOUNCE_INTERVAL   =  2 # seconds  (time between announcement packets)
 MAX_CONFLICTS       = 10 #          (max conflicts before rate limiting)
 RATE_LIMIT_INTERVAL = 60 # seconds  (delay between successive attempts)
 DEFEND_INTERVAL     = 10 # seconds  (minimum interval between defensive ARPs).
-
-ETH_BROADCAST = 'ff:ff:ff:ff:ff:ff'
-ETH_TYPE_ARP = 0x0806
+ETH_BROADCAST       = 'ff:ff:ff:ff:ff:ff'
+ETH_TYPE_ARP        = 0x0806
+# fmt: on
 
 
 # Note: section 1.6 says not to use dhcp in 169.254/16, but cloud-init does
 
 
-def get_pseudo_random_ip(
-        mac) -> typing.Iterator[IPv4Address]:
+def get_pseudo_random_ip(mac) -> Iterator[IPv4Address]:
     """169.254.1.0 to 169.254.254.255"""
 
     # mac might be identical from copied images, time might be identical from
     # simultaneous launch, hopefully /dev/random is smarter than we are
     # TODO: improve this
     random.seed(
-            "".join([
-                    mac,
-                    str(time.time()),
-                    str((f := open("/dev/random", "rb")).read(32))
-                ])
+        "".join(
+            [
+                mac,
+                str(time.time()),
+                str((f := open("/dev/random", "rb")).read(32)),
+            ]
+        )
     )
     f.close()
 
     while True:
-        yield IPv4Address("169.254.{}.{}".format(
+        yield IPv4Address(
+            "169.254.{}.{}".format(
                 random.randint(1, 254),
                 random.randint(0, 255),
             )
         )
 
-def get_ips(_) -> typing.Iterator[IPv4Address]:
+
+def get_ips(_) -> Iterator[IPv4Address]:
     for i in range(1, 255):
         for j in range(0, 256):
             yield IPv4Address("169.254.{}.{}".format(i, j))
@@ -85,7 +90,8 @@ def gratuitous_arp(ip, mac, socket):
             hex(mac[0:2]),
             hex(mac[2:4]),
             hex(mac[4:6]),
-        ])
+        ],
+    )
     gratuitous_arp = [
         # HTYPE
         struct.pack("!h", 1),
@@ -104,8 +110,8 @@ def gratuitous_arp(ip, mac, socket):
         # THA
         ether_addr,
         # TPA
-        socket.inet_aton(address)
-        ]
+        socket.inet_aton(address),
+    ]
     ether_frame = [
         # Destination address:
         ether_aton(ETH_BROADCAST),
@@ -114,14 +120,16 @@ def gratuitous_arp(ip, mac, socket):
         # Protocol
         struct.pack("!h", ETH_TYPE_ARP),
         # Data
-        ''.join(gratuitous_arp)
-        ]
-    socket.send(''.join(ether_frame))
+        "".join(gratuitous_arp),
+    ]
+    socket.send("".join(ether_frame))
     socket.close()
+
 
 def arp_listen(socket):
     """Needs to timeout every second or so for event checking & cleanup"""
     return socket.recv(4096)
+
 
 def listening_thread(queue, event, socket):
     while not event.is_set():
@@ -133,6 +141,7 @@ def listening_thread(queue, event, socket):
         except Exception as e:
             print(e)
             os._exit(1)
+
 
 def gather_arps(mac, socket):
     """Start thread that listens for arps, queue them"""
@@ -146,6 +155,7 @@ def gather_arps(mac, socket):
     t.start()
     return (q, e, t)
 
+
 def arp_matches_mac(mac, ret):
     raise NotImplemented
 
@@ -153,6 +163,7 @@ def arp_matches_mac(mac, ret):
 def is_ip_in_use(ip: IPv4Address, mac, queue, socket) -> bool:
     t_init = time.time()
     t_max = t_init + PROBE_WAIT
+
     def time_left():
         return t if (t := t_max - time.time()) >= 0 else 0
 
@@ -172,6 +183,7 @@ def is_ip_in_use(ip: IPv4Address, mac, queue, socket) -> bool:
     return False
     print("Timeout out")
 
+
 def select_link_local_ipv4_address(mac, socket, scan=False):
     ip = None
     get_ip = get_pseudo_random_ip if not scan else get_ips
@@ -188,6 +200,7 @@ def select_link_local_ipv4_address(mac, socket, scan=False):
     event.set()
     thread.join()
 
+
 def discover_interace(iface):
     try:
         s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
@@ -199,23 +212,30 @@ def discover_interace(iface):
         raise
     return (s, mac)
 
+
 def get_hw_addr(addr: bytes) -> str:
-    return ':'.join('%02x'% i for i in addr)
+    return ":".join("{:02x}".format(i) for i in addr)
+
 
 def get_src_hw(frame: bytes) -> str:
     return get_hw_addr(frame[0:6])
 
+
 def get_dst_hw(frame: bytes) -> str:
     return get_hw_addr(frame[6:12])
 
+
 def get_ipv4_addr(addr: bytes) -> str:
-    return '.'.join(str(int(i)) for i in addr)
+    return ".".join(str(int(i)) for i in addr)
+
 
 def get_src_ipv4(frame: bytes) -> str:
     return get_ipv4_addr(frame[28:32])
 
+
 def get_dst_ipv4(frame: bytes) -> str:
     return get_ipv4_addr(frame[38:42])
+
 
 def arpdump(iface, debug=False):
     socket, mac = discover_interace(iface)
@@ -223,12 +243,14 @@ def arpdump(iface, debug=False):
     try:
         while True:
             frame = queue.get()
-            print("src mac: {} src ip: {}\ndst mac: {} src ip: {}".format(
-                get_src_hw(frame),
-                get_src_ipv4(frame),
-                get_dst_hw(frame),
-                get_dst_ipv4(frame),
-            ))
+            print(
+                "src mac: {} src ip: {}\ndst mac: {} src ip: {}".format(
+                    get_src_hw(frame),
+                    get_src_ipv4(frame),
+                    get_dst_hw(frame),
+                    get_dst_ipv4(frame),
+                )
+            )
             if debug:
                 print(frame)
     except KeyboardInterrupt:
@@ -237,13 +259,15 @@ def arpdump(iface, debug=False):
     event.set()
     thread.join()
 
+
 def arping(iface):
     s, mac = discover_interace(iface)
     select_link_local_ipv4_address(mac, s, scan=False)
 
+
 if "__main__" == __name__:
     try:
-        #arping(sys.argv[1])
+        # arping(sys.argv[1])
         arpdump(sys.argv[1])
     except PermissionError:
         print("Command requires root")

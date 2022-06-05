@@ -2,13 +2,15 @@
 # This file is part of cloud-init. See LICENSE file for license information.
 
 """Arping tool"""
-import cloudinit.net.arp as arp
 import argparse
 
-NAME = "arping"
+import cloudinit.net.arp as arp
+
+NAME = "arp"
+
 
 def get_parser(parser=None):
-    """Build or extend and arg parser for arping utility.
+    """Build or extend and arg parser for arp utility.
 
     @param parser: Optional existing ArgumentParser instance representing the
         subcommand which will be extended to support the args of this utility.
@@ -25,7 +27,6 @@ def get_parser(parser=None):
         help="Network interface to ping from",
     )
 
-def handle_args(_, args):
-    print("yo")
-    arp.arping(args.interface)
 
+def handle_args(_, args):
+    arp.arpdump(args.interface)
