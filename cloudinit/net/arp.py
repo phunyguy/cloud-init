@@ -8,6 +8,13 @@ import threading
 import socket
 import struct
 # https://datatracker.ietf.org/doc/html/rfc3927#section-2.4
+#
+# Commands for verification:
+#
+# Example:
+# arping -A -i eth0 10.0.0.1
+# sudo tcpdump -lni  wlp2s0 arp
+#
 
 # Assumes L2 supports arp
 PROBE_WAIT          =  1 # second   (initial random delay)
@@ -175,7 +182,7 @@ def select_link_local_ipv4_address(mac, socket, scan=False):
     event.set()
     thread.join()
 
-def arping(iface):
+def discover_interace(iface):
     try:
         s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
         s.bind((iface, ETH_TYPE_ARP))
@@ -183,6 +190,21 @@ def arping(iface):
     except OSError as e:
         print(e)
         raise
+    return (s, mac)
+
+def arpdump(iface):
+    socket, mac = discover_interace(iface)
+    queue, event, thread = gather_arps(mac, socket)
+    try:
+        for arp in queue.get(block=True):
+            print(arp)
+    except KeyboardInterrupt:
+        pass
+    event.set()
+    thread.join()
+
+def arping(iface):
+    s, mac = discover_interace(iface)
     select_link_local_ipv4_address(mac, s, scan=False)
 
 if "__main__" == __name__:
