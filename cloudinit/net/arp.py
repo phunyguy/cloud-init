@@ -1,7 +1,8 @@
-import ipaddress
+from ipaddress import IPv4Address
 import random
 import time
 import sys
+import os
 import typing
 import queue
 import threading
@@ -36,7 +37,7 @@ ETH_TYPE_ARP = 0x0806
 
 
 def get_pseudo_random_ip(
-        mac) -> typing.Iterator[ipaddress.IPv4Address]:
+        mac) -> typing.Iterator[IPv4Address]:
     """169.254.1.0 to 169.254.254.255"""
 
     # mac might be identical from copied images, time might be identical from
@@ -52,16 +53,16 @@ def get_pseudo_random_ip(
     f.close()
 
     while True:
-        yield ipaddress.IPv4Address("169.254.{}.{}".format(
+        yield IPv4Address("169.254.{}.{}".format(
                 random.randint(1, 254),
                 random.randint(0, 255),
             )
         )
 
-def get_ips(_) -> typing.Iterator[ipaddress.IPv4Address]:
+def get_ips(_) -> typing.Iterator[IPv4Address]:
     for i in range(1, 255):
         for j in range(0, 256):
-            yield ipaddress.IPv4Address("169.254.{}.{}".format(i, j))
+            yield IPv4Address("169.254.{}.{}".format(i, j))
 
 
 # https://github.com/secdev/scapy/blob/master/scapy/layers/l2.py
@@ -119,14 +120,20 @@ def gratuitous_arp(ip, mac, socket):
     socket.send(''.join(ether_frame))
     socket.close()
 
-def arp_listen():
+def arp_listen(socket):
     """Needs to timeout every second or so for event checking & cleanup"""
-    raise NotImplemented
+    return socket.recv(4096)
 
-def listening_thread(queue, event, mac, socket):
+def listening_thread(queue, event, socket):
     while not event.is_set():
-        if val := arp_listen():
-            queue.put(val)
+        try:
+            if val := arp_listen(socket):
+                queue.put(val)
+        except TimeoutError:
+            pass
+        except Exception as e:
+            print(e)
+            os._exit(1)
 
 def gather_arps(mac, socket):
     """Start thread that listens for arps, queue them"""
@@ -135,7 +142,7 @@ def gather_arps(mac, socket):
     t = threading.Thread(
         name="arp listener",
         target=listening_thread,
-        args=(q, e, mac, socket),
+        args=(q, e, socket),
     )
     t.start()
     return (q, e, t)
@@ -144,7 +151,7 @@ def arp_matches_mac(mac, ret):
     raise NotImplemented
 
 
-def is_ip_in_use(ip, mac, queue, socket) -> bool:
+def is_ip_in_use(ip: IPv4Address, mac, queue, socket) -> bool:
     t_init = time.time()
     t_max = t_init + PROBE_WAIT
     def time_left():
@@ -186,6 +193,7 @@ def discover_interace(iface):
     try:
         s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
         s.bind((iface, ETH_TYPE_ARP))
+        s.settimeout(0.1)
         mac = s.getsockname()[4]
     except OSError as e:
         print(e)
@@ -196,10 +204,11 @@ def arpdump(iface):
     socket, mac = discover_interace(iface)
     queue, event, thread = gather_arps(mac, socket)
     try:
-        for arp in queue.get(block=True):
-            print(arp)
+        while True:
+            print(str(queue.get()))
     except KeyboardInterrupt:
-        pass
+        print("Done!")
+
     event.set()
     thread.join()
 
@@ -208,4 +217,8 @@ def arping(iface):
     select_link_local_ipv4_address(mac, s, scan=False)
 
 if "__main__" == __name__:
-    arping(sys.argv[1])
+    try:
+        #arping(sys.argv[1])
+        arpdump(sys.argv[1])
+    except PermissionError:
+        print("Command requires root")
