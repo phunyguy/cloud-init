@@ -12,10 +12,9 @@ import struct
 #
 # Commands for verification:
 #
-# Example:
 # arping -A -i eth0 10.0.0.1
 # sudo tcpdump -lni  wlp2s0 arp
-#
+# ip neigh show
 
 # Assumes L2 supports arp
 PROBE_WAIT          =  1 # second   (initial random delay)
@@ -200,12 +199,27 @@ def discover_interace(iface):
         raise
     return (s, mac)
 
+def get_src_hw(frame: bytes) -> str:
+    return get_hw_addr(frame[0:6])
+
+def get_dst_hw(frame: bytes) -> str:
+    return get_hw_addr(frame[6:12])
+
+def get_hw_addr(addr: bytes) -> str:
+    return ':'.join('%02x'%i for i in addr)
+
+
 def arpdump(iface):
     socket, mac = discover_interace(iface)
     queue, event, thread = gather_arps(mac, socket)
     try:
         while True:
-            print(str(queue.get()))
+            frame = queue.get()
+            print("src: {}\ndst: {}".format(
+                get_src_hw(frame),
+                get_dst_hw(frame),
+            ))
+            print(frame)
     except KeyboardInterrupt:
         print("Done!")
 
