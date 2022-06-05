@@ -9,11 +9,14 @@ import time
 from ipaddress import IPv4Address
 from typing import Iterator
 
-# https://github.com/secdev/scapy/blob/master/scapy/layers/l2.py
+# https://tuprints.ulb.tu-darmstadt.de/6243/1/TR-18.pdf
 # https://datatracker.ietf.org/doc/html/rfc3927#section-2.1
+# https://github.com/secdev/scapy/blob/master/scapy/layers/l2.py
 #
 # man packet
 # man socket
+# man raw
+# man ip
 
 # https://datatracker.ietf.org/doc/html/rfc3927#section-2.4
 #
