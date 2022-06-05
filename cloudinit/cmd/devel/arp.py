@@ -12,8 +12,7 @@ NAME = "arp"
 def get_parser(parser=None):
     """Build or extend and arg parser for arp utility.
 
-    @param parser: Optional existing ArgumentParser instance representing the
-        subcommand which will be extended to support the args of this utility.
+    @param parser: Optional existing ArgumentParser instance.
 
     @returns: ArgumentParser with proper argument configuration.
     """
@@ -24,9 +23,29 @@ def get_parser(parser=None):
         "--interface",
         required=True,
         type=str,
-        help="Network interface to ping from",
+        help="Network interface to use",
+    )
+
+    parser.add_argument(
+        "-p",
+        "--ping",
+        type=bool,
+        help="Arping",
+    )
+
+    parser.add_argument(
+        "-d",
+        "--dump",
+        type=bool,
+        help="Dump arp info (kill with ctrl-c)",
     )
 
 
+
 def handle_args(_, args):
-    arp.arpdump(args.interface)
+    if args.dump:
+        arp.arpdump(args.interface)
+    elif args.ping:
+        arp.arping(args.interface)
+    else:
+        raise NotImplementedError("nope")
