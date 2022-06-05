@@ -199,27 +199,38 @@ def discover_interace(iface):
         raise
     return (s, mac)
 
+def get_hw_addr(addr: bytes) -> str:
+    return ':'.join('%02x'% i for i in addr)
+
 def get_src_hw(frame: bytes) -> str:
     return get_hw_addr(frame[0:6])
 
 def get_dst_hw(frame: bytes) -> str:
     return get_hw_addr(frame[6:12])
 
-def get_hw_addr(addr: bytes) -> str:
-    return ':'.join('%02x'%i for i in addr)
+def get_ipv4_addr(addr: bytes) -> str:
+    return '.'.join(str(int(i)) for i in addr)
 
+def get_src_ipv4(frame: bytes) -> str:
+    return get_ipv4_addr(frame[28:32])
 
-def arpdump(iface):
+def get_dst_ipv4(frame: bytes) -> str:
+    return get_ipv4_addr(frame[38:42])
+
+def arpdump(iface, debug=False):
     socket, mac = discover_interace(iface)
     queue, event, thread = gather_arps(mac, socket)
     try:
         while True:
             frame = queue.get()
-            print("src: {}\ndst: {}".format(
+            print("src mac: {} src ip: {}\ndst mac: {} src ip: {}".format(
                 get_src_hw(frame),
+                get_src_ipv4(frame),
                 get_dst_hw(frame),
+                get_dst_ipv4(frame),
             ))
-            print(frame)
+            if debug:
+                print(frame)
     except KeyboardInterrupt:
         print("Done!")
 
