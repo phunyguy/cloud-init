@@ -10,8 +10,14 @@ from array import array
 from ipaddress import IPv4Address
 from typing import Iterator
 
-# https://tuprints.ulb.tu-darmstadt.de/6243/1/TR-18.pdf
+# NOTE:
+# Per [1] RFC 3927 is rejected, so this POC is not expected to outlive its
+# infancy
+#
+# [1] https://www.rfc-editor.org/errata/rfc3927
 # https://datatracker.ietf.org/doc/html/rfc3927#section-2.1
+
+# https://tuprints.ulb.tu-darmstadt.de/6243/1/TR-18.pdf
 # https://github.com/secdev/scapy/blob/master/scapy/layers/l2.py
 #
 # man packet
@@ -19,7 +25,6 @@ from typing import Iterator
 # man raw
 # man ip
 
-# https://datatracker.ietf.org/doc/html/rfc3927#section-2.4
 #
 # Commands for verification:
 #
@@ -44,9 +49,6 @@ ETH_TYPE_ARP        = 0x0806
 OP_REQUEST          = 1
 OP_REPLY            = 2
 # fmt: on
-
-
-# Note: section 1.6 says not to use dhcp in 169.254/16, but cloud-init does
 
 
 def get_pseudo_random_ip(mac) -> Iterator[IPv4Address]:
