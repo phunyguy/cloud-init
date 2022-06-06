@@ -6,6 +6,7 @@ import struct
 import sys
 import threading
 import time
+from array import array
 from ipaddress import IPv4Address
 from typing import Iterator
 
@@ -38,7 +39,7 @@ ANNOUNCE_INTERVAL   =  2 # seconds  (time between announcement packets)
 MAX_CONFLICTS       = 10 #          (max conflicts before rate limiting)
 RATE_LIMIT_INTERVAL = 60 # seconds  (delay between successive attempts)
 DEFEND_INTERVAL     = 10 # seconds  (minimum interval between defensive ARPs).
-ETH_BROADCAST       = 'ff:ff:ff:ff:ff:ff'
+ETH_BROADCAST       = [0xFFFF, 0xFFFF, 0xFFFF]
 ETH_TYPE_ARP        = 0x0806
 OP_REQUEST          = 1
 OP_REPLY            = 2
@@ -87,53 +88,6 @@ def gratuitous_arp(ip, mac, socket):
     # TODO: continue here
     raise NotImplemented()
 
-    # Broadcast frame in network byte order
-    struct.iter_unpack(
-        "!h",
-        [
-            0x0001,  # Ethernet
-            0x0800,  # IPv4
-            0x0604,  # mac address is 6 bytes, IPv4 address is 4
-            0x0002,  # operation:  1 is request, 2 is reply
-            hex(mac[0:2]),
-            hex(mac[2:4]),
-            hex(mac[4:6]),
-        ],
-    )
-    gratuitous_arp = [
-        # HTYPE
-        struct.pack("!h", 1),
-        # PTYPE (IPv4)
-        struct.pack("!h", 0x0800),
-        # HLEN
-        struct.pack("!B", 6),
-        # PLEN
-        struct.pack("!B", 4),
-        # OPER (reply)
-        struct.pack("!h", 2),
-        # SHA
-        ether_addr,
-        # SPA
-        socket.inet_aton(address),
-        # THA
-        ether_addr,
-        # TPA
-        socket.inet_aton(address),
-    ]
-    ether_frame = [
-        # Destination address:
-        ether_aton(ETH_BROADCAST),
-        # Source address:
-        mac,
-        # Protocol
-        struct.pack("!h", ETH_TYPE_ARP),
-        # Data
-        "".join(gratuitous_arp),
-    ]
-    socket.send("".join(ether_frame))
-    socket.close()
-
-
 def arp_listen(socket):
     return socket.recv(4096)
 
@@ -150,7 +104,7 @@ def listening_thread(queue, event, socket):
             os._exit(1)
 
 
-def gather_arps(mac, socket):
+def gather_arps(socket):
     """Start thread that listens for arps, queue them"""
     q = queue.Queue()
     e = threading.Event()
@@ -194,7 +148,7 @@ def is_ip_in_use(ip: IPv4Address, mac, queue, socket) -> bool:
 def select_link_local_ipv4_address(mac, socket, scan=False):
     ip = None
     get_ip = get_pseudo_random_ip if not scan else get_ips
-    queue, event, thread = gather_arps(mac, socket)
+    queue, event, thread = gather_arps(socket)
     for ip in get_ip(mac):
         # Use first free address
         if response := is_ip_in_use(ip, mac, queue, socket):
@@ -259,13 +213,12 @@ def get_op_name(frame: bytes) -> str:
             f"Invalid op: {op} is not in set({OP_REQUEST}, {OP_REPLY})"
         )
 
-
 def arp_dump(iface, debug=False):
     """Implementation doesn't use promiscuous mode. Only arps directed to
     the specified iface or broadcast will be observed.
     """
-    socket, mac = discover_interace(iface)
-    queue, event, thread = gather_arps(mac, socket)
+    socket, _ = discover_interace(iface)
+    queue, event, thread = gather_arps(socket)
     try:
         while True:
             frame = queue.get()
@@ -287,10 +240,59 @@ def arp_dump(iface, debug=False):
     thread.join()
     socket.close()
 
+def to_network_byte_order(packet: array):
+    length = len(packet)
+    format_str = f'!{length}H'
+    out = array("H",
+        struct.unpack(format_str, packet)
+    )
+    return out
 
-def arp_probe(iface):
+def pretty_print(packet: array):
+    """perhaps only in the eye of the beholder"""
+    print("\n".join("{:04x}".format(short) for short in packet))
+
+def arp_probe(iface, probe_ip: IPv4Address):
     socket, mac = discover_interace(iface)
 
+    # Broadcast frame in network byte order
+    # each list element is 2 bytes in the header
+
+    arp_probe_payload = [
+            0x0001,  # Ethernet
+            0x0800,  # IPv4
+            0x0604,  # mac address is 6 bytes, IPv4 address is 4
+            0x0001,  # operation:  1 is request, 2 is reply
+            int.from_bytes(mac[0:2], byteorder=sys.byteorder),
+            int.from_bytes(mac[2:4], byteorder=sys.byteorder),
+            int.from_bytes(mac[4:6], byteorder=sys.byteorder),
+            0x0000,  # SPA:
+            0x0000,  # THA:
+            int.from_bytes(probe_ip.packed[0:2], byteorder=sys.byteorder),
+            int.from_bytes(probe_ip.packed[2:4], byteorder=sys.byteorder),
+    ]
+    ether_frame = array("H", [
+        # Destination address:
+        *ETH_BROADCAST,
+        # Source address:
+        int.from_bytes(mac[0:2], byteorder=sys.byteorder),
+        int.from_bytes(mac[2:4], byteorder=sys.byteorder),
+        int.from_bytes(mac[4:6], byteorder=sys.byteorder),
+        # Protocol
+        ETH_TYPE_ARP,
+        # Data
+        *arp_probe_payload,
+    ])
+    nbo_packet = to_network_byte_order(ether_frame)
+
+    # currently packets are malformed after the opcode
+    # TODO: Investigate
+    # print("mac:")
+    # print(int.from_bytes(mac[0:2], byteorder=sys.byteorder))
+    print("sending packet:")
+    pretty_print(nbo_packet)
+    socket.send(nbo_packet)
+    socket.close()
 
 def arping(iface):
     socket, mac = discover_interace(iface)
@@ -300,7 +302,8 @@ def arping(iface):
 
 if "__main__" == __name__:
     try:
+        arp_probe(sys.argv[1], IPv4Address(sys.argv[2]))
         # arping(sys.argv[1])
-        arpdump(sys.argv[1])
+        # arp_dump(sys.argv[1])
     except PermissionError:
         print("Command requires root")
