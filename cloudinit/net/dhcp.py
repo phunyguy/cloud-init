@@ -241,6 +241,9 @@ def dhcp_discovery(dhclient_cmd_path, interface, cleandir, dhcp_log_func=None):
     # We want to avoid running /sbin/dhclient-script because of side-effects in
     # /etc/resolv.conf any any other vendor specific scripts in
     # /etc/dhcp/dhclient*hooks.d.
+    #
+    # probably don't work around apparmor in code?
+    #
     sandbox_dhclient_cmd = os.path.join(cleandir, "dhclient")
     util.copy(dhclient_cmd_path, sandbox_dhclient_cmd)
     pid_file = os.path.join(cleandir, "dhclient.pid")

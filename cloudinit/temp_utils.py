@@ -8,7 +8,11 @@ import tempfile
 
 _TMPDIR = None
 _ROOT_TMPDIR = "/run/cloud-init/tmp"
-_EXE_ROOT_TMPDIR = "/var/tmp/cloud-init"
+
+# This is for the person(s) trying to run cloud-init as root != 0
+# I doubt anybody does this, but there is insufficient evidence of that to
+# change current behavior for them.
+_NON_ROOT_TMPDIR = "/tmp"
 
 
 def _tempfile_dir_arg(odir=None, needs_exe=False):
@@ -24,28 +28,29 @@ def _tempfile_dir_arg(odir=None, needs_exe=False):
     @param odir: original 'dir' arg to 'mkdtemp' or other.
     @param needs_exe: Boolean specifying whether or not exe permissions are
         needed for tempdir. This is needed because /run is mounted noexec.
+
+    Presumably for performance reasons, the dir is cached
     """
+    global _TMPDIR
+
+    def make_the_dir_be(tdir):
+        if not os.path.isdir(tdir):
+            os.makedirs(tdir)
+            os.chmod(tdir, 0o1700)
+
     if odir is not None:
         return odir
 
-    if needs_exe:
-        tdir = _EXE_ROOT_TMPDIR
-        if not os.path.isdir(tdir):
-            os.makedirs(tdir)
-            os.chmod(tdir, 0o1777)
-        return tdir
-
-    global _TMPDIR
     if _TMPDIR:
         return _TMPDIR
 
-    if os.getuid() == 0:
-        tdir = _ROOT_TMPDIR
-    else:
-        tdir = os.environ.get("TMPDIR", "/tmp")
-    if not os.path.isdir(tdir):
-        os.makedirs(tdir)
-        os.chmod(tdir, 0o1777)
+    if needs_exe or os.getuid() == 0:
+        make_the_dir_be(_ROOT_TMPDIR)
+        _TMPDIR = _ROOT_TMPDIR
+        return _ROOT_TMPDIR
+
+    tdir = os.environ.get("TMPDIR", _NON_ROOT_TMPDIR)
+    make_the_dir_be(tdir)
 
     _TMPDIR = tdir
     return tdir
@@ -81,16 +86,13 @@ def ExtendedTemporaryFile(**kwargs):
     return fh
 
 
-@contextlib.contextmanager
 def tempdir(rmtree_ignore_errors=False, **kwargs):
     # This seems like it was only added in python 3.2
     # Make it since its useful...
     # See: http://bugs.python.org/file12970/tempdir.patch
-    tdir = mkdtemp(**kwargs)
-    try:
-        yield tdir
-    finally:
-        shutil.rmtree(tdir, ignore_errors=rmtree_ignore_errors)
+    return tempfile.TemporaryDirectory(
+        ignore_cleanup_errors=rmtree_ignore_errors, **kwargs
+    )
 
 
 def mkdtemp(**kwargs):

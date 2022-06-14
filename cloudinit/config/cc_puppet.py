@@ -14,6 +14,7 @@ from io import StringIO
 from textwrap import dedent
 
 import yaml
+import tempfile
 
 from cloudinit import helpers, subp, temp_utils, url_helper, util
 from cloudinit.config.schema import MetaSchema, get_meta_doc
@@ -169,7 +170,7 @@ def install_puppet_aio(
     content = url_helper.readurl(url=url, retries=5).contents
 
     # Use tmpdir over tmpfile to avoid 'text file busy' on execute
-    with temp_utils.tempdir(needs_exe=True) as tmpd:
+    with tempfile.TemporaryDirectory(needs_exe=True) as tmpd:
         tmpf = os.path.join(tmpd, "puppet-install")
         util.write_file(tmpf, content, mode=0o700)
         return subp.subp([tmpf] + args, capture=False)
