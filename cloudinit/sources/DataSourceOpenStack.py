@@ -17,7 +17,7 @@ from cloudinit.sources.helpers import openstack
 LOG = logging.getLogger(__name__)
 
 # Various defaults/constants...
-DEF_MD_URL = "http://169.254.169.254"
+DEF_MD_URLS = ["http://169.254.169.254", "http://[fe80::a9fe:a9fe]"]
 DEFAULT_IID = "iid-dsopenstack"
 DEFAULT_METADATA = {
     "instance-id": DEFAULT_IID,
@@ -68,7 +68,7 @@ class DataSourceOpenStack(openstack.SourceMixin, sources.DataSource):
         return mstr
 
     def wait_for_metadata_service(self):
-        urls = self.ds_cfg.get("metadata_urls", [DEF_MD_URL])
+        urls = self.ds_cfg.get("metadata_urls", DEF_MD_URLS)
         filtered = [x for x in urls if util.is_resolvable_url(x)]
         if set(filtered) != set(urls):
             LOG.debug(
@@ -79,7 +79,7 @@ class DataSourceOpenStack(openstack.SourceMixin, sources.DataSource):
             urls = filtered
         else:
             LOG.warning("Empty metadata url list! using default list")
-            urls = [DEF_MD_URL]
+            urls = DEF_MD_URLS
 
         md_urls = []
         url2base = {}
@@ -94,6 +94,7 @@ class DataSourceOpenStack(openstack.SourceMixin, sources.DataSource):
             urls=md_urls,
             max_wait=url_params.max_wait_seconds,
             timeout=url_params.timeout_seconds,
+            connect_synchronously=False,
         )
         if avail_url:
             LOG.debug("Using metadata source: '%s'", url2base[avail_url])
