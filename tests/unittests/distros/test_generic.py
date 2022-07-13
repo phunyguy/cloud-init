@@ -382,4 +382,15 @@ class TestGetPackageMirrors:
         }
 
 
-# vi: ts=4 expandtab
+class TestIsSelinuxSupported:
+    def test_is_selinux_enabled(self):
+        with mock.patch("cloudinit.subp.subp") as m_subp:
+            m_subp.return_value = None
+            assert distros.fetch("ubuntu")("", "", "").is_selinux_enabled()
+
+    def test_is_selinux_not_enabled(self):
+        with mock.patch("cloudinit.subp.subp") as m_subp:
+            # subp throws exception indicating failure
+            m_subp.side_effect = lambda: 1 / 0
+            out = distros.fetch("ubuntu")("", "", "").is_selinux_enabled()
+            assert not out

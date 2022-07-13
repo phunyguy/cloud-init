@@ -80,6 +80,11 @@ class BSD(distros.Distro):
                     LOG, "Failed to add user '%s' to group '%s'", member, name
                 )
 
+    @staticmethod
+    def is_selinux_enabled() -> bool:
+        """other MAC controls exist for the BSDs"""
+        return False
+
     def generate_fallback_config(self):
         nconf = {"config": [], "version": 1}
         for mac, name in net.get_interfaces_by_mac().items():

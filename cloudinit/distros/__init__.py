@@ -79,6 +79,8 @@ class Distro(persistence.CloudInitPickleMixin, metaclass=abc.ABCMeta):
     init_cmd = ["service"]  # systemctl, service etc
     renderer_configs: Mapping[str, Mapping[str, Any]] = {}
     _preferred_ntp_clients = None
+    _supports_selinux = None
+    _refresh_selinux = True
     networking_cls: Type[Networking] = LinuxNetworking
     # This is used by self.shutdown_command(), and can be overridden in
     # subclasses
@@ -93,9 +95,11 @@ class Distro(persistence.CloudInitPickleMixin, metaclass=abc.ABCMeta):
         self._cfg = cfg
         self.name = name
         self.networking: Networking = self.networking_cls()
+        type(self)._refresh_selinux = True
 
     def _unpickle(self, ci_pkl_version: int) -> None:
         """Perform deserialization fixes for Distro."""
+        type(self)._refresh_selinux = True
         if "networking" not in self.__dict__ or not self.networking.__dict__:
             # This is either a Distro pickle with no networking attribute OR
             # this is a Distro pickle with a networking attribute but from
@@ -437,6 +441,22 @@ class Distro(persistence.CloudInitPickleMixin, metaclass=abc.ABCMeta):
             self._preferred_ntp_clients = list(PREFERRED_NTP_CLIENTS)
 
         return self._preferred_ntp_clients
+
+    @classmethod
+    def is_selinux_enabled(cls) -> bool:
+        """id -Z uses is_selinux_disabled() from <selinux/selinux.h>
+
+        this value can change between reboots, so refresh if service has
+        restarted
+        """
+        if cls._supports_selinux is None or cls._refresh_selinux:
+            try:
+                subp.subp(["id", "--context"], capture=False)
+                cls._supports_selinux = True
+            except Exception:
+                cls._supports_selinux = False
+        cls._refresh_selinux = False
+        return cls._supports_selinux
 
     def _bring_up_interface(self, device_name):
         """Deprecated. Remove if/when arch and gentoo support renderers."""
